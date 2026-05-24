@@ -74,16 +74,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ── Logo + titre ──
+                    // ── Logo (centré) + titre ──
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(26, 32, 24, 0),
-                      child: Image.asset('assets/images/tui_logo.png',
-                          height: 46, fit: BoxFit.contain),
+                      padding: const EdgeInsets.fromLTRB(24, 32, 24, 0),
+                      child: Center(
+                        child: Image.asset('assets/images/tui_logo.png',
+                            height: 50, fit: BoxFit.contain),
+                      ),
                     ),
                     const SizedBox(height: 14),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 26),
                       child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Container(
                             width: 6,
