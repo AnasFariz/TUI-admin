@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme.dart';
+import '../export_service.dart';
+import '../widgets/export_button.dart';
 
 class FlightsTab extends StatefulWidget {
   const FlightsTab({super.key});
@@ -158,6 +160,48 @@ class _FlightsTabState extends State<FlightsTab> {
     }).toList();
   }
 
+  String _statusLabel(String st) => switch (st) {
+        'delayed' => 'Retardé',
+        'cancelled' => 'Annulé',
+        _ => 'À l\'heure',
+      };
+
+  List<List<String>> _exportRows() {
+    return _filtered
+        .map((f) => [
+              (f['flight_number'] ?? '').toString(),
+              '${f['departure_code'] ?? ''} → ${f['arrival_code'] ?? ''}',
+              '${f['departure_city'] ?? ''} → ${f['arrival_city'] ?? ''}',
+              (f['flight_date'] ?? '').toString(),
+              _statusLabel((f['status'] ?? 'on_time').toString()),
+              '${f['delay_minutes'] ?? 0} min',
+            ])
+        .toList();
+  }
+
+  static const _exportHeaders = [
+    'Vol',
+    'Trajet',
+    'Villes',
+    'Date',
+    'Statut',
+    'Retard'
+  ];
+
+  void _exportCsv() {
+    ExportService.downloadCsv('vols_tui.csv', _exportHeaders, _exportRows());
+  }
+
+  Future<void> _exportPdf() async {
+    await ExportService.downloadPdf(
+      title: 'Liste des vols',
+      subtitle: '${_filtered.length} vol(s) — TUI Belgium',
+      headers: _exportHeaders,
+      rows: _exportRows(),
+      filename: 'vols_tui.pdf',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -189,6 +233,8 @@ class _FlightsTabState extends State<FlightsTab> {
                 ],
               ),
               const Spacer(),
+              ExportButton(onCsv: _exportCsv, onPdf: _exportPdf),
+              const SizedBox(width: 10),
               _refreshBtn(),
             ],
           ),

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme.dart';
+import '../export_service.dart';
+import '../widgets/export_button.dart';
 
 class ClaimsTab extends StatefulWidget {
   const ClaimsTab({super.key});
@@ -72,6 +74,41 @@ class _ClaimsTabState extends State<ClaimsTab> {
     return _claims.where((c) => (c['status'] ?? 'pending') == _filter).toList();
   }
 
+  String _statusLabel(String st) => switch (st) {
+        'approved' => 'Approuvée',
+        'rejected' => 'Rejetée',
+        'paid' => 'Payée',
+        _ => 'En attente',
+      };
+
+  List<List<String>> _exportRows() {
+    return _filtered
+        .map((c) => [
+              '${c['amount_eur'] ?? '--'} €',
+              _statusLabel((c['status'] ?? 'pending').toString()),
+              (c['iban'] ?? '—').toString(),
+              c['created_at']?.toString().substring(0, 10) ?? '',
+            ])
+        .toList();
+  }
+
+  static const _exportHeaders = ['Montant', 'Statut', 'IBAN', 'Date'];
+
+  void _exportCsv() {
+    ExportService.downloadCsv(
+        'compensations_tui.csv', _exportHeaders, _exportRows());
+  }
+
+  Future<void> _exportPdf() async {
+    await ExportService.downloadPdf(
+      title: 'Demandes de compensation',
+      subtitle: '${_filtered.length} demande(s) — Règlement EU261',
+      headers: _exportHeaders,
+      rows: _exportRows(),
+      filename: 'compensations_tui.pdf',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
@@ -104,6 +141,8 @@ class _ClaimsTabState extends State<ClaimsTab> {
                 ],
               ),
               const Spacer(),
+              ExportButton(onCsv: _exportCsv, onPdf: _exportPdf),
+              const SizedBox(width: 10),
               _refreshBtn(),
             ],
           ),
