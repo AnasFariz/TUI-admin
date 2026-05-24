@@ -108,7 +108,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Container(
                   height: 72,
                   padding: const EdgeInsets.symmetric(horizontal: 32),
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     color: AdminTheme.card,
                     border: Border(
                         bottom: BorderSide(color: AdminTheme.border)),
@@ -117,6 +117,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     children: [
                       Text(_titles[_index], style: AdminTheme.h2),
                       const Spacer(),
+                      // Toggle mode sombre
+                      InkWell(
+                        onTap: () =>
+                            isDarkMode.value = !isDarkMode.value,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: AdminTheme.bg,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AdminTheme.border),
+                          ),
+                          child: Icon(
+                            isDarkMode.value
+                                ? Icons.light_mode_rounded
+                                : Icons.dark_mode_rounded,
+                            size: 20,
+                            color: isDarkMode.value
+                                ? AdminTheme.orange
+                                : AdminTheme.navy,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
                       Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 14, vertical: 8),

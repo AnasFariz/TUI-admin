@@ -21,11 +21,16 @@ class TuiAdminApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'TUI Admin',
-      debugShowCheckedModeBanner: false,
-      theme: AdminTheme.theme,
-      home: const _AuthGate(),
+    return ValueListenableBuilder<bool>(
+      valueListenable: isDarkMode,
+      builder: (_, __, ___) {
+        return MaterialApp(
+          title: 'TUI Admin',
+          debugShowCheckedModeBanner: false,
+          theme: AdminTheme.theme,
+          home: const _AuthGate(),
+        );
+      },
     );
   }
 }

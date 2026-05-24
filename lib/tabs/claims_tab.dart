@@ -102,7 +102,7 @@ class _ClaimsTabState extends State<ClaimsTab> {
                   Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 20, vertical: 14),
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       color: AdminTheme.bg,
                       borderRadius:
                           BorderRadius.vertical(top: Radius.circular(16)),
@@ -145,7 +145,7 @@ class _ClaimsTabState extends State<ClaimsTab> {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(top: BorderSide(color: AdminTheme.border)),
       ),
       child: Row(

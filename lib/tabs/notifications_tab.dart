@@ -224,11 +224,11 @@ class _NotificationsTabState extends State<NotificationsTab> {
         fillColor: AdminTheme.bg,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AdminTheme.border),
+          borderSide: BorderSide(color: AdminTheme.border),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AdminTheme.border),
+          borderSide: BorderSide(color: AdminTheme.border),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
