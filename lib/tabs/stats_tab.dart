@@ -61,33 +61,45 @@ class _StatsTabState extends State<StatsTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // KPI cards
+          // En-tête de bienvenue
+          Text('Vue d\'ensemble',
+              style: GoogleFonts.inter(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: AdminTheme.textPrimary)),
+          const SizedBox(height: 4),
+          Text('Suivi en temps réel des opérations TUI Belgium',
+              style: AdminTheme.muted),
+          const SizedBox(height: 24),
+
+          // KPI cards (style pro avec gradient)
           Row(
             children: [
-              _kpi('Vols totaux', '$_totalFlights', Icons.flight,
-                  AdminTheme.navy),
-              const SizedBox(width: 16),
-              _kpi('À l\'heure', '$_onTime', Icons.check_circle,
-                  AdminTheme.green),
-              const SizedBox(width: 16),
-              _kpi('Perturbés', '$disrupted', Icons.warning_amber,
-                  AdminTheme.orange),
-              const SizedBox(width: 16),
-              _kpi('Taux perturbation', '$disruptRate%', Icons.trending_up,
-                  AdminTheme.red),
+              _kpi('Vols totaux', '$_totalFlights', Icons.flight_rounded,
+                  AdminTheme.navy, 'Tous les vols suivis'),
+              const SizedBox(width: 18),
+              _kpi('À l\'heure', '$_onTime', Icons.check_circle_rounded,
+                  AdminTheme.green, 'Vols ponctuels'),
+              const SizedBox(width: 18),
+              _kpi('Perturbés', '$disrupted', Icons.warning_amber_rounded,
+                  AdminTheme.orange, 'Retards + annulations'),
+              const SizedBox(width: 18),
+              _kpi('Taux perturbation', '$disruptRate%',
+                  Icons.trending_up_rounded, AdminTheme.red, 'Sur le total'),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
           Row(
             children: [
-              _kpi('Réservations', '$_reservations', Icons.confirmation_number,
-                  AdminTheme.navyLight),
-              const SizedBox(width: 16),
-              _kpi('Demandes compensation', '$_claims',
-                  Icons.payments, AdminTheme.orange),
-              const SizedBox(width: 16),
+              _kpi('Réservations', '$_reservations',
+                  Icons.confirmation_number_rounded, AdminTheme.navyLight,
+                  'Passagers enregistrés'),
+              const SizedBox(width: 18),
+              _kpi('Compensations', '$_claims', Icons.payments_rounded,
+                  AdminTheme.orange, 'Demandes EU261'),
+              const SizedBox(width: 18),
               const Expanded(child: SizedBox()),
-              const SizedBox(width: 16),
+              const SizedBox(width: 18),
               const Expanded(child: SizedBox()),
             ],
           ),
@@ -170,30 +182,73 @@ class _StatsTabState extends State<StatsTab> {
   TextStyle get _pieStyle => GoogleFonts.inter(
       fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white);
 
-  Widget _kpi(String label, String value, IconData icon, Color color) {
+  Widget _kpi(String label, String value, IconData icon, Color color,
+      String subtitle) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: AdminTheme.cardDeco,
+        padding: const EdgeInsets.all(22),
+        decoration: BoxDecoration(
+          color: AdminTheme.card,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AdminTheme.border),
+          boxShadow: [
+            BoxShadow(
+              color: AdminTheme.navy.withValues(alpha: 0.05),
+              blurRadius: 20,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: color, size: 22),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(11),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [color, color.withValues(alpha: 0.7)],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: color.withValues(alpha: 0.35),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Icon(icon, color: Colors.white, size: 22),
+                ),
+                const Spacer(),
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.3),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 18),
             Text(value,
                 style: GoogleFonts.inter(
-                    fontSize: 28,
+                    fontSize: 32,
                     fontWeight: FontWeight.w800,
+                    color: AdminTheme.textPrimary,
+                    height: 1)),
+            const SizedBox(height: 6),
+            Text(label,
+                style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
                     color: AdminTheme.textPrimary)),
             const SizedBox(height: 2),
-            Text(label, style: AdminTheme.muted),
+            Text(subtitle,
+                style: GoogleFonts.inter(
+                    fontSize: 11, color: AdminTheme.textMuted)),
           ],
         ),
       ),

@@ -37,45 +37,56 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           // ── Sidebar ──
           Container(
-            width: 250,
-            color: AdminTheme.navy,
+            width: 260,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [AdminTheme.navy, Color(0xFF0A1738)],
+              ),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Logo TUI dans un cartouche blanc
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
+                  padding: const EdgeInsets.fromLTRB(20, 28, 20, 8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.15),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
                         ),
-                        child: Text('TUI',
-                            style: GoogleFonts.inter(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w900,
-                                color: AdminTheme.red)),
-                      ),
-                      const SizedBox(width: 10),
-                      Text('Admin',
-                          style: GoogleFonts.inter(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white)),
-                    ],
+                      ],
+                    ),
+                    child: Image.asset('assets/images/tui_logo.png',
+                        height: 34, fit: BoxFit.contain),
                   ),
                 ),
-                _navItem(0, Icons.dashboard_outlined, 'Tableau de bord'),
-                _navItem(1, Icons.flight_outlined, 'Vols'),
-                _navItem(2, Icons.payments_outlined, 'Compensations'),
-                _navItem(3, Icons.notifications_outlined, 'Notifications'),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 4, 24, 20),
+                  child: Text('CONSOLE D\'ADMINISTRATION',
+                      style: GoogleFonts.inter(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white.withValues(alpha: 0.4),
+                          letterSpacing: 1.5)),
+                ),
+                _navItem(0, Icons.dashboard_rounded, 'Tableau de bord'),
+                _navItem(1, Icons.flight_rounded, 'Vols'),
+                _navItem(2, Icons.payments_rounded, 'Compensations'),
+                _navItem(3, Icons.notifications_rounded, 'Notifications'),
                 const Spacer(),
+                Divider(color: Colors.white.withValues(alpha: 0.1), height: 1),
                 // Logout
                 Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(12),
                   child: InkWell(
                     onTap: () => Supabase.instance.client.auth.signOut(),
                     borderRadius: BorderRadius.circular(10),
@@ -84,7 +95,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           horizontal: 16, vertical: 12),
                       child: Row(
                         children: [
-                          Icon(Icons.logout,
+                          Icon(Icons.logout_rounded,
                               color: Colors.white.withValues(alpha: 0.7),
                               size: 20),
                           const SizedBox(width: 12),
@@ -164,24 +175,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _navItem(int i, IconData icon, String label) {
     final active = _index == i;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
       child: InkWell(
         onTap: () => setState(() => _index = i),
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        borderRadius: BorderRadius.circular(12),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
           decoration: BoxDecoration(
             color: active
-                ? Colors.white.withValues(alpha: 0.12)
+                ? Colors.white.withValues(alpha: 0.14)
                 : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
             children: [
+              // Barre d'accent rouge à gauche (actif)
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 3,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: active ? AdminTheme.red : Colors.transparent,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 12),
               Icon(icon,
                   color: active
                       ? Colors.white
-                      : Colors.white.withValues(alpha: 0.6),
+                      : Colors.white.withValues(alpha: 0.55),
                   size: 20),
               const SizedBox(width: 12),
               Text(label,
@@ -190,7 +213,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       fontWeight: active ? FontWeight.w700 : FontWeight.w500,
                       color: active
                           ? Colors.white
-                          : Colors.white.withValues(alpha: 0.6))),
+                          : Colors.white.withValues(alpha: 0.55))),
             ],
           ),
         ),
