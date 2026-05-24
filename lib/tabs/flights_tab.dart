@@ -13,6 +13,8 @@ class _FlightsTabState extends State<FlightsTab> {
   final _sb = Supabase.instance.client;
   List<Map<String, dynamic>> _flights = [];
   bool _loading = true;
+  String _filter = 'all'; // all | on_time | delayed | cancelled
+  String _query = '';
 
   @override
   void initState() {
@@ -49,8 +51,9 @@ class _FlightsTabState extends State<FlightsTab> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
+            behavior: SnackBarBehavior.floating,
             content: Text(
-                'Vol ${flight['flight_number']} mis à jour → $status. Notifications envoyées aux passagers.'),
+                'Vol ${flight['flight_number']} mis à jour. Notifications envoyées aux passagers.'),
             backgroundColor: AdminTheme.green,
           ),
         );
@@ -66,133 +69,426 @@ class _FlightsTabState extends State<FlightsTab> {
     }
   }
 
+  List<Map<String, dynamic>> get _filtered {
+    return _flights.where((f) {
+      final st = (f['status'] ?? 'on_time').toString();
+      final matchFilter = _filter == 'all' ||
+          (_filter == 'on_time' && st != 'delayed' && st != 'cancelled') ||
+          st == _filter;
+      final q = _query.toLowerCase();
+      final matchQuery = q.isEmpty ||
+          (f['flight_number'] ?? '').toString().toLowerCase().contains(q) ||
+          (f['departure_code'] ?? '').toString().toLowerCase().contains(q) ||
+          (f['arrival_code'] ?? '').toString().toLowerCase().contains(q);
+      return matchFilter && matchQuery;
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
+
+    final onTime = _flights
+        .where((f) => f['status'] != 'delayed' && f['status'] != 'cancelled')
+        .length;
+    final delayed = _flights.where((f) => f['status'] == 'delayed').length;
+    final cancelled = _flights.where((f) => f['status'] == 'cancelled').length;
+    final list = _filtered;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Header ──
           Row(
             children: [
-              Text('${_flights.length} vols', style: AdminTheme.h2),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Gestion des vols', style: AdminTheme.h1),
+                  const SizedBox(height: 2),
+                  Text('Pilotez le statut des vols en temps réel',
+                      style: AdminTheme.muted),
+                ],
+              ),
               const Spacer(),
-              OutlinedButton.icon(
-                onPressed: _load,
-                icon: const Icon(Icons.refresh, size: 18),
-                label: const Text('Actualiser'),
+              _refreshBtn(),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // ── Mini stats ──
+          Row(
+            children: [
+              _miniStat('Total', _flights.length, Icons.flight_rounded,
+                  AdminTheme.navy),
+              const SizedBox(width: 16),
+              _miniStat('À l\'heure', onTime, Icons.check_circle_rounded,
+                  AdminTheme.green),
+              const SizedBox(width: 16),
+              _miniStat('Retardés', delayed, Icons.schedule_rounded,
+                  AdminTheme.orange),
+              const SizedBox(width: 16),
+              _miniStat('Annulés', cancelled, Icons.cancel_rounded,
+                  AdminTheme.red),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // ── Barre filtres + recherche ──
+          Row(
+            children: [
+              _filterChip('all', 'Tous', _flights.length),
+              const SizedBox(width: 8),
+              _filterChip('on_time', 'À l\'heure', onTime),
+              const SizedBox(width: 8),
+              _filterChip('delayed', 'Retardés', delayed),
+              const SizedBox(width: 8),
+              _filterChip('cancelled', 'Annulés', cancelled),
+              const Spacer(),
+              SizedBox(
+                width: 240,
+                child: TextField(
+                  onChanged: (v) => setState(() => _query = v),
+                  style: AdminTheme.body,
+                  decoration: InputDecoration(
+                    hintText: 'Rechercher un vol…',
+                    hintStyle: AdminTheme.muted,
+                    prefixIcon: Icon(Icons.search,
+                        size: 20, color: AdminTheme.textMuted),
+                    isDense: true,
+                    filled: true,
+                    fillColor: AdminTheme.card,
+                    contentPadding:
+                        const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AdminTheme.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AdminTheme.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide:
+                          const BorderSide(color: AdminTheme.navy, width: 1.5),
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 20),
-          Container(
-            decoration: AdminTheme.cardDeco,
-            child: Column(
-              children: [
-                // Header
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 20, vertical: 14),
-                  decoration: BoxDecoration(
-                    color: AdminTheme.bg,
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+          const SizedBox(height: 18),
+
+          // ── Liste de cartes de vol ──
+          if (list.isEmpty)
+            _empty()
+          else
+            ...list.map((f) => Padding(
+                  padding: const EdgeInsets.only(bottom: 14),
+                  child: _FlightCard(
+                    flight: f,
+                    onStatus: _updateStatus,
                   ),
-                  child: Row(
-                    children: [
-                      _hCell('VOL', 2),
-                      _hCell('TRAJET', 3),
-                      _hCell('DATE', 2),
-                      _hCell('STATUT', 2),
-                      _hCell('ACTIONS', 3),
-                    ],
-                  ),
-                ),
-                ..._flights.map(_row),
-              ],
-            ),
-          ),
+                )),
         ],
       ),
     );
   }
 
-  Widget _hCell(String t, int flex) => Expanded(
-        flex: flex,
-        child: Text(t,
-            style: GoogleFonts.inter(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                color: AdminTheme.textMuted,
-                letterSpacing: 0.8)),
+  Widget _refreshBtn() => InkWell(
+        onTap: _load,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+          decoration: BoxDecoration(
+            color: AdminTheme.card,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AdminTheme.border),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.refresh, size: 18, color: AdminTheme.textSecondary),
+              const SizedBox(width: 8),
+              Text('Actualiser',
+                  style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AdminTheme.textSecondary)),
+            ],
+          ),
+        ),
       );
 
-  Widget _row(Map<String, dynamic> f) {
-    final status = (f['status'] ?? 'on_time').toString();
-    final (color, label) = switch (status) {
-      'delayed' => (AdminTheme.orange, 'Retardé'),
-      'cancelled' => (AdminTheme.red, 'Annulé'),
-      _ => (AdminTheme.green, 'À l\'heure'),
-    };
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-      decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: AdminTheme.border)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-              flex: 2,
-              child: Text(f['flight_number'] ?? '',
-                  style: GoogleFonts.inter(
-                      fontWeight: FontWeight.w700,
-                      color: AdminTheme.textPrimary))),
-          Expanded(
-              flex: 3,
-              child: Text(
-                  '${f['departure_code']} → ${f['arrival_code']}',
-                  style: AdminTheme.body)),
-          Expanded(
-              flex: 2,
-              child: Text(f['flight_date']?.toString() ?? '',
-                  style: AdminTheme.muted)),
-          Expanded(
-            flex: 2,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(label,
-                    style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: color)),
+  Widget _miniStat(String label, int value, IconData icon, Color color) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: AdminTheme.cardDeco,
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
               ),
+              child: Icon(icon, color: color, size: 22),
             ),
-          ),
-          Expanded(
-            flex: 3,
-            child: Wrap(
-              spacing: 6,
+            const SizedBox(width: 14),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _actionBtn('À l\'heure', AdminTheme.green,
-                    () => _updateStatus(f, 'on_time', 0)),
-                _actionBtn('Retard', AdminTheme.orange,
-                    () => _updateStatus(f, 'delayed', 120)),
-                _actionBtn('Annuler', AdminTheme.red,
-                    () => _updateStatus(f, 'cancelled', 0)),
+                Text('$value',
+                    style: GoogleFonts.inter(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: AdminTheme.textPrimary,
+                        height: 1)),
+                const SizedBox(height: 2),
+                Text(label, style: AdminTheme.muted),
               ],
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _filterChip(String value, String label, int count) {
+    final active = _filter == value;
+    return InkWell(
+      onTap: () => setState(() => _filter = value),
+      borderRadius: BorderRadius.circular(22),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+        decoration: BoxDecoration(
+          color: active ? AdminTheme.navy : AdminTheme.card,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+              color: active ? AdminTheme.navy : AdminTheme.border),
+        ),
+        child: Row(
+          children: [
+            Text(label,
+                style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: active ? Colors.white : AdminTheme.textSecondary)),
+            const SizedBox(width: 7),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
+              decoration: BoxDecoration(
+                color: active
+                    ? Colors.white.withValues(alpha: 0.2)
+                    : AdminTheme.bg,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text('$count',
+                  style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: active ? Colors.white : AdminTheme.textMuted)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _empty() => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(60),
+        decoration: AdminTheme.cardDeco,
+        child: Column(
+          children: [
+            Icon(Icons.flight_takeoff_rounded,
+                size: 48, color: AdminTheme.textMuted),
+            const SizedBox(height: 12),
+            Text('Aucun vol ne correspond', style: AdminTheme.muted),
+          ],
+        ),
+      );
+}
+
+// ──────────────────────────────────────────
+// CARTE DE VOL (hover + design billet)
+// ──────────────────────────────────────────
+class _FlightCard extends StatefulWidget {
+  final Map<String, dynamic> flight;
+  final Future<void> Function(Map<String, dynamic>, String, int) onStatus;
+  const _FlightCard({required this.flight, required this.onStatus});
+
+  @override
+  State<_FlightCard> createState() => _FlightCardState();
+}
+
+class _FlightCardState extends State<_FlightCard> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final f = widget.flight;
+    final status = (f['status'] ?? 'on_time').toString();
+    final (color, label, icon) = switch (status) {
+      'delayed' => (AdminTheme.orange, 'Retardé', Icons.schedule_rounded),
+      'cancelled' => (AdminTheme.red, 'Annulé', Icons.cancel_rounded),
+      _ => (AdminTheme.green, 'À l\'heure', Icons.check_circle_rounded),
+    };
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        transform: Matrix4.translationValues(0, _hover ? -3 : 0, 0),
+        decoration: BoxDecoration(
+          color: AdminTheme.card,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+              color: _hover ? color.withValues(alpha: 0.4) : AdminTheme.border),
+          boxShadow: [
+            BoxShadow(
+              color: _hover
+                  ? color.withValues(alpha: 0.15)
+                  : Colors.black.withValues(alpha: isDarkMode.value ? 0.2 : 0.04),
+              blurRadius: _hover ? 22 : 14,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: IntrinsicHeight(
+          child: Row(
+            children: [
+              // Bande couleur de statut à gauche
+              Container(
+                width: 5,
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius:
+                      const BorderRadius.horizontal(left: Radius.circular(18)),
+                ),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Row(
+                    children: [
+                      // Numéro de vol + avatar
+                      Container(
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [AdminTheme.navy, Color(0xFF1B2A5A)],
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(Icons.flight_rounded,
+                            color: Colors.white, size: 24),
+                      ),
+                      const SizedBox(width: 16),
+                      // Trajet
+                      Expanded(
+                        flex: 4,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(f['flight_number'] ?? '',
+                                style: GoogleFonts.inter(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                    color: AdminTheme.textPrimary)),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Text(f['departure_code'] ?? '—',
+                                    style: GoogleFonts.inter(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                        color: AdminTheme.textSecondary)),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8),
+                                  child: Icon(Icons.arrow_forward_rounded,
+                                      size: 14, color: AdminTheme.textMuted),
+                                ),
+                                Text(f['arrival_code'] ?? '—',
+                                    style: GoogleFonts.inter(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                        color: AdminTheme.textSecondary)),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Date
+                      Expanded(
+                        flex: 2,
+                        child: Row(
+                          children: [
+                            Icon(Icons.calendar_today_rounded,
+                                size: 14, color: AdminTheme.textMuted),
+                            const SizedBox(width: 6),
+                            Text(f['flight_date']?.toString() ?? '',
+                                style: AdminTheme.muted),
+                          ],
+                        ),
+                      ),
+                      // Badge statut
+                      Expanded(
+                        flex: 2,
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 7),
+                            decoration: BoxDecoration(
+                              color: color.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                  color: color.withValues(alpha: 0.25)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(icon, size: 14, color: color),
+                                const SizedBox(width: 6),
+                                Text(label,
+                                    style: GoogleFonts.inter(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: color)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Actions
+                      _actionBtn('À l\'heure', AdminTheme.green,
+                          () => widget.onStatus(f, 'on_time', 0)),
+                      const SizedBox(width: 6),
+                      _actionBtn('Retard', AdminTheme.orange,
+                          () => widget.onStatus(f, 'delayed', 120)),
+                      const SizedBox(width: 6),
+                      _actionBtn('Annuler', AdminTheme.red,
+                          () => widget.onStatus(f, 'cancelled', 0)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -200,17 +496,17 @@ class _FlightsTabState extends State<FlightsTab> {
   Widget _actionBtn(String label, Color color, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(9),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(9),
           border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
         child: Text(label,
             style: GoogleFonts.inter(
-                fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+                fontSize: 12, fontWeight: FontWeight.w700, color: color)),
       ),
     );
   }
