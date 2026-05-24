@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'theme.dart';
+import 'tui_smile.dart';
 import 'tabs/stats_tab.dart';
 import 'tabs/flights_tab.dart';
 import 'tabs/claims_tab.dart';
@@ -48,13 +49,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Logo TUI (sans fond)
+                // Logo smile TUI (dessiné, blanc sur navy)
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 30, 24, 10),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Image.asset('assets/images/tui_logo.png',
-                        height: 40, fit: BoxFit.contain),
+                  padding: const EdgeInsets.fromLTRB(24, 30, 24, 12),
+                  child: Row(
+                    children: [
+                      const TuiSmile(size: 48, color: Colors.white),
+                      const SizedBox(width: 14),
+                      Text('TUI',
+                          style: GoogleFonts.inter(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                              letterSpacing: 1)),
+                    ],
                   ),
                 ),
                 Padding(
