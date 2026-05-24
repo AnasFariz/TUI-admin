@@ -48,25 +48,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Logo TUI dans un cartouche blanc
+                // Logo TUI (sans fond)
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 28, 20, 8),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 18, vertical: 14),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.15),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
+                  padding: const EdgeInsets.fromLTRB(24, 30, 24, 10),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
                     child: Image.asset('assets/images/tui_logo.png',
-                        height: 34, fit: BoxFit.contain),
+                        height: 40, fit: BoxFit.contain),
                   ),
                 ),
                 Padding(
