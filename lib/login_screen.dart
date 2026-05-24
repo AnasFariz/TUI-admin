@@ -63,16 +63,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(24),
+                      padding: const EdgeInsets.all(28),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(24),
                       ),
-                      child: Text('TUI',
-                          style: GoogleFonts.inter(
-                              fontSize: 56,
-                              fontWeight: FontWeight.w900,
-                              color: AdminTheme.red)),
+                      child: Image.asset('assets/images/tui_logo.png',
+                          height: 80, fit: BoxFit.contain),
                     ),
                     const SizedBox(height: 24),
                     Text('Console d\'administration',

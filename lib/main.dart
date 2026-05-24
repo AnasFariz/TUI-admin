@@ -28,8 +28,13 @@ class TuiAdminApp extends StatelessWidget {
           title: 'TUI Admin',
           debugShowCheckedModeBanner: false,
           theme: AdminTheme.theme,
-          // La clé force la reconstruction du sous-arbre au changement de mode
-          home: _AuthGate(key: ValueKey(dark)),
+          // Transition fluide en fondu au changement de mode
+          home: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 400),
+            switchInCurve: Curves.easeInOut,
+            switchOutCurve: Curves.easeInOut,
+            child: _AuthGate(key: ValueKey(dark)),
+          ),
         );
       },
     );
