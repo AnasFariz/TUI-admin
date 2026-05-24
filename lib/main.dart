@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'theme.dart';
 import 'login_screen.dart';
 import 'dashboard_screen.dart';
@@ -10,6 +11,7 @@ const supabaseKey = 'sb_publishable_C5ILIX6MoFROjAgY1MzIKg_TFo-Pvxg';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('fr_FR', null);
   await Supabase.initialize(url: supabaseUrl, anonKey: supabaseKey);
   runApp(const TuiAdminApp());
 }
