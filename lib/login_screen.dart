@@ -48,7 +48,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       body: Row(
         children: [
-          // Panneau gauche (branding)
+          // Panneau gauche (branding luxe)
           Expanded(
             flex: 5,
             child: Container(
@@ -56,28 +56,62 @@ class _LoginScreenState extends State<LoginScreen> {
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [AdminTheme.navy, Color(0xFF06112E)],
+                  colors: [Color(0xFF13265E), AdminTheme.navy, Color(0xFF050C1F)],
                 ),
               ),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Image.asset('assets/images/tui_logo.png',
-                        height: 110, fit: BoxFit.contain),
-                    const SizedBox(height: 24),
-                    Text('Console d\'administration',
-                        style: GoogleFonts.inter(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white)),
-                    const SizedBox(height: 8),
-                    Text('Gestion des perturbations de vols',
-                        style: GoogleFonts.inter(
-                            fontSize: 14,
-                            color: Colors.white.withValues(alpha: 0.6))),
-                  ],
-                ),
+              child: Stack(
+                children: [
+                  // Orbes décoratifs flous
+                  Positioned(
+                    top: -80,
+                    left: -60,
+                    child: _orb(260, AdminTheme.red.withValues(alpha: 0.18)),
+                  ),
+                  Positioned(
+                    bottom: -100,
+                    right: -80,
+                    child: _orb(320, const Color(0xFF2E6BFF).withValues(alpha: 0.15)),
+                  ),
+                  // Contenu
+                  Padding(
+                    padding: const EdgeInsets.all(56),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Spacer(),
+                        Image.asset('assets/images/tui_logo.png',
+                            height: 150, fit: BoxFit.contain),
+                        const SizedBox(height: 40),
+                        Text('Console d\'administration',
+                            style: GoogleFonts.inter(
+                                fontSize: 34,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                                height: 1.1,
+                                letterSpacing: -0.5)),
+                        const SizedBox(height: 14),
+                        Text(
+                          'Pilotez les opérations de TUI Belgium en temps réel :\nvols, perturbations, compensations et notifications.',
+                          style: GoogleFonts.inter(
+                              fontSize: 15,
+                              color: Colors.white.withValues(alpha: 0.65),
+                              height: 1.6),
+                        ),
+                        const SizedBox(height: 40),
+                        _feature(Icons.flight_rounded, 'Gestion des vols en direct'),
+                        const SizedBox(height: 16),
+                        _feature(Icons.bolt_rounded, 'Notifications temps réel'),
+                        const SizedBox(height: 16),
+                        _feature(Icons.shield_rounded, 'Sécurisé & conforme EU261'),
+                        const Spacer(),
+                        Text('© 2026 TUI Belgium — Tous droits réservés',
+                            style: GoogleFonts.inter(
+                                fontSize: 12,
+                                color: Colors.white.withValues(alpha: 0.35))),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -94,9 +128,36 @@ class _LoginScreenState extends State<LoginScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('Connexion', style: AdminTheme.h1),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AdminTheme.navy.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                    color: AdminTheme.green,
+                                    shape: BoxShape.circle),
+                              ),
+                              const SizedBox(width: 8),
+                              Text('Espace réservé au personnel TUI',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: AdminTheme.navy)),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        Text('Bienvenue', style: AdminTheme.h1),
                         const SizedBox(height: 8),
-                        Text('Accédez à la console TUI',
+                        Text('Connectez-vous à la console d\'administration',
                             style: AdminTheme.muted),
                         const SizedBox(height: 32),
                         _field(_email, 'Email', Icons.mail_outline),
@@ -153,6 +214,40 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _orb(double size, Color color) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(colors: [color, color.withValues(alpha: 0)]),
+      ),
+    );
+  }
+
+  Widget _feature(IconData icon, String label) {
+    return Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(11),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+          ),
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
+        const SizedBox(width: 14),
+        Text(label,
+            style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Colors.white.withValues(alpha: 0.85))),
+      ],
     );
   }
 
