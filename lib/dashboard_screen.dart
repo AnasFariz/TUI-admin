@@ -117,31 +117,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     children: [
                       Text(_titles[_index], style: AdminTheme.h2),
                       const Spacer(),
-                      // Toggle mode sombre
-                      InkWell(
-                        onTap: () =>
-                            isDarkMode.value = !isDarkMode.value,
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          width: 42,
-                          height: 42,
-                          decoration: BoxDecoration(
-                            color: AdminTheme.bg,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AdminTheme.border),
-                          ),
-                          child: Icon(
-                            isDarkMode.value
-                                ? Icons.light_mode_rounded
-                                : Icons.dark_mode_rounded,
-                            size: 20,
-                            color: isDarkMode.value
-                                ? AdminTheme.orange
-                                : AdminTheme.navy,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 14),
+                      // Switch mode sombre (toggle pro)
+                      const _ThemeSwitch(),
+                      const SizedBox(width: 16),
                       Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 14, vertical: 8),
@@ -229,6 +207,95 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           : Colors.white.withValues(alpha: 0.55))),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────
+// SWITCH MODE SOMBRE (toggle professionnel)
+// ──────────────────────────────────────────
+class _ThemeSwitch extends StatelessWidget {
+  const _ThemeSwitch();
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = isDarkMode.value;
+    return InkWell(
+      onTap: () => isDarkMode.value = !isDarkMode.value,
+      borderRadius: BorderRadius.circular(30),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeInOut,
+        width: 64,
+        height: 34,
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: dark
+                ? [const Color(0xFF1B2A5A), const Color(0xFF0F1F4D)]
+                : [const Color(0xFFFFD27A), const Color(0xFFFFB347)],
+          ),
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: (dark ? AdminTheme.navy : AdminTheme.orange)
+                  .withValues(alpha: 0.35),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            // Icônes de fond
+            Positioned(
+              left: 7,
+              top: 6,
+              child: Icon(Icons.wb_sunny_rounded,
+                  size: 15,
+                  color: dark
+                      ? Colors.white.withValues(alpha: 0.3)
+                      : Colors.white),
+            ),
+            Positioned(
+              right: 7,
+              top: 6,
+              child: Icon(Icons.nightlight_round,
+                  size: 14,
+                  color: dark
+                      ? Colors.white
+                      : Colors.white.withValues(alpha: 0.4)),
+            ),
+            // Bouton glissant
+            AnimatedAlign(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeInOut,
+              alignment:
+                  dark ? Alignment.centerRight : Alignment.centerLeft,
+              child: Container(
+                width: 26,
+                height: 26,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.2),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  dark ? Icons.nightlight_round : Icons.wb_sunny_rounded,
+                  size: 15,
+                  color: dark ? AdminTheme.navy : AdminTheme.orange,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
