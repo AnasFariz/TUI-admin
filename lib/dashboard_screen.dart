@@ -233,32 +233,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const Spacer(),
                       // Switch mode sombre (toggle pro)
                       const _ThemeSwitch(),
-                      const SizedBox(width: 16),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: AdminTheme.bg,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          children: [
-                            const CircleAvatar(
-                              radius: 14,
-                              backgroundColor: AdminTheme.navy,
-                              child: Icon(Icons.person,
-                                  size: 16, color: Colors.white),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              Supabase.instance.client.auth.currentUser
-                                      ?.email ??
-                                  'Admin',
-                              style: AdminTheme.muted,
-                            ),
-                          ],
-                        ),
-                      ),
                     ],
                   ),
                 ),
