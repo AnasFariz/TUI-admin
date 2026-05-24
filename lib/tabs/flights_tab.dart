@@ -16,6 +16,75 @@ class _FlightsTabState extends State<FlightsTab> {
   String _filter = 'all'; // all | on_time | delayed | cancelled
   String _query = '';
 
+  // Filtre par passager (email)
+  final _passengerCtrl = TextEditingController();
+  Set<String>? _passengerFlightIds; // null = filtre inactif
+  String? _passengerLabel;
+  bool _passengerLoading = false;
+
+  @override
+  void dispose() {
+    _passengerCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _filterByPassenger() async {
+    final email = _passengerCtrl.text.trim().toLowerCase();
+    if (email.isEmpty) {
+      setState(() {
+        _passengerFlightIds = null;
+        _passengerLabel = null;
+      });
+      return;
+    }
+    setState(() => _passengerLoading = true);
+    try {
+      // email → user_id (profiles)
+      final prof = await _sb
+          .from('profiles')
+          .select('id, email, full_name')
+          .ilike('email', email)
+          .maybeSingle();
+      if (prof == null) {
+        setState(() {
+          _passengerFlightIds = <String>{};
+          _passengerLabel = '$email (introuvable)';
+        });
+        return;
+      }
+      // user_id → flight_ids (reservations)
+      final res = await _sb
+          .from('reservations')
+          .select('flight_id')
+          .eq('passenger_id', prof['id']);
+      final ids = (res as List)
+          .map((r) => r['flight_id'].toString())
+          .toSet();
+      setState(() {
+        _passengerFlightIds = ids;
+        _passengerLabel = prof['full_name']?.toString().isNotEmpty == true
+            ? '${prof['full_name']} · ${ids.length} vol(s)'
+            : '$email · ${ids.length} vol(s)';
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur : $e'), backgroundColor: AdminTheme.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _passengerLoading = false);
+    }
+  }
+
+  void _clearPassenger() {
+    _passengerCtrl.clear();
+    setState(() {
+      _passengerFlightIds = null;
+      _passengerLabel = null;
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -71,6 +140,11 @@ class _FlightsTabState extends State<FlightsTab> {
 
   List<Map<String, dynamic>> get _filtered {
     return _flights.where((f) {
+      // Filtre passager (réservations)
+      if (_passengerFlightIds != null &&
+          !_passengerFlightIds!.contains(f['id'].toString())) {
+        return false;
+      }
       final st = (f['status'] ?? 'on_time').toString();
       final matchFilter = _filter == 'all' ||
           (_filter == 'on_time' && st != 'delayed' && st != 'cancelled') ||
@@ -182,6 +256,130 @@ class _FlightsTabState extends State<FlightsTab> {
               ),
             ],
           ),
+          const SizedBox(height: 16),
+
+          // ── Filtre par passager (email) ──
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: AdminTheme.cardDeco,
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AdminTheme.navy.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: Icon(Icons.person_search_rounded,
+                      color: AdminTheme.navy, size: 20),
+                ),
+                const SizedBox(width: 14),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Filtrer par passager',
+                        style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AdminTheme.textPrimary)),
+                    Text('Affiche uniquement ses vols réservés',
+                        style: AdminTheme.muted),
+                  ],
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: TextField(
+                    controller: _passengerCtrl,
+                    style: AdminTheme.body,
+                    onSubmitted: (_) => _filterByPassenger(),
+                    decoration: InputDecoration(
+                      hintText: 'email du passager (ex: anasfariz15@gmail.com)',
+                      hintStyle: AdminTheme.muted,
+                      prefixIcon: Icon(Icons.alternate_email_rounded,
+                          size: 18, color: AdminTheme.textMuted),
+                      isDense: true,
+                      filled: true,
+                      fillColor: AdminTheme.bg,
+                      contentPadding: const EdgeInsets.symmetric(
+                          vertical: 12, horizontal: 8),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: AdminTheme.border),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: AdminTheme.border),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                            color: AdminTheme.navy, width: 1.5),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                InkWell(
+                  onTap: _passengerLoading ? null : _filterByPassenger,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: AdminTheme.navy,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: _passengerLoading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor:
+                                    AlwaysStoppedAnimation(Colors.white)))
+                        : Text('Filtrer',
+                            style: GoogleFonts.inter(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white)),
+                  ),
+                ),
+                if (_passengerFlightIds != null) ...[
+                  const SizedBox(width: 8),
+                  InkWell(
+                    onTap: _clearPassenger,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AdminTheme.bg,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AdminTheme.border),
+                      ),
+                      child: Icon(Icons.close_rounded,
+                          size: 18, color: AdminTheme.textSecondary),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (_passengerLabel != null) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Icon(Icons.filter_alt_rounded,
+                    size: 16, color: AdminTheme.navy),
+                const SizedBox(width: 6),
+                Text('Passager : $_passengerLabel',
+                    style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AdminTheme.navy)),
+              ],
+            ),
+          ],
           const SizedBox(height: 18),
 
           // ── Liste de cartes de vol ──
