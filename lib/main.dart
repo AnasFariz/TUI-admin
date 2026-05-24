@@ -23,12 +23,13 @@ class TuiAdminApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<bool>(
       valueListenable: isDarkMode,
-      builder: (_, __, ___) {
+      builder: (_, dark, ___) {
         return MaterialApp(
           title: 'TUI Admin',
           debugShowCheckedModeBanner: false,
           theme: AdminTheme.theme,
-          home: const _AuthGate(),
+          // La clé force la reconstruction du sous-arbre au changement de mode
+          home: _AuthGate(key: ValueKey(dark)),
         );
       },
     );
@@ -36,7 +37,7 @@ class TuiAdminApp extends StatelessWidget {
 }
 
 class _AuthGate extends StatelessWidget {
-  const _AuthGate();
+  const _AuthGate({super.key});
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<AuthState>(
