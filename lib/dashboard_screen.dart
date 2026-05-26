@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -18,6 +19,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _index = 0;
   int _newClaims = 0; // badge temps réel pour Compensations
   RealtimeChannel? _claimsChannel;
+  Timer? _pollTimer;
+  int _lastKnownCount = 0;
 
   final _titles = [
     'Tableau de bord',
@@ -36,44 +39,89 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _subscribeNewClaims();
+    _initBaseline().then((_) {
+      _subscribeNewClaims();
+      _startPollingFallback();
+    });
   }
 
   @override
   void dispose() {
     _claimsChannel?.unsubscribe();
+    _pollTimer?.cancel();
     super.dispose();
   }
 
+  Future<void> _initBaseline() async {
+    try {
+      final rows = await Supabase.instance.client
+          .from('compensation_claims')
+          .select('id');
+      _lastKnownCount = (rows as List).length;
+    } catch (_) {}
+  }
+
+  /// S'assure que le JWT est attaché au websocket Realtime (sinon RLS bloque).
   void _subscribeNewClaims() {
     final sb = Supabase.instance.client;
+    final token = sb.auth.currentSession?.accessToken;
+    if (token != null) {
+      sb.realtime.setAuth(token);
+    }
     _claimsChannel = sb.channel('admin-new-claims')
       ..onPostgresChanges(
         event: PostgresChangeEvent.insert,
         schema: 'public',
         table: 'compensation_claims',
-        callback: (payload) {
-          if (!mounted) return;
-          // N'incrémente pas si on est déjà sur l'onglet Compensations
-          if (_index == 2) return;
-          setState(() => _newClaims++);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              behavior: SnackBarBehavior.floating,
-              backgroundColor: AdminTheme.orange,
-              content: Row(
-                children: const [
-                  Icon(Icons.notifications_active_rounded,
-                      color: Colors.white, size: 18),
-                  SizedBox(width: 10),
-                  Text('Nouvelle demande de compensation reçue'),
-                ],
-              ),
-            ),
-          );
-        },
+        callback: (_) => _onNewClaim(),
       )
       ..subscribe();
+  }
+
+  /// Fallback : si le websocket dort, on poll toutes les 15s.
+  void _startPollingFallback() {
+    _pollTimer?.cancel();
+    _pollTimer =
+        Timer.periodic(const Duration(seconds: 15), (_) => _pollCount());
+  }
+
+  Future<void> _pollCount() async {
+    if (!mounted) return;
+    try {
+      final rows = await Supabase.instance.client
+          .from('compensation_claims')
+          .select('id');
+      final n = (rows as List).length;
+      if (n > _lastKnownCount) {
+        final delta = n - _lastKnownCount;
+        _lastKnownCount = n;
+        for (var i = 0; i < delta; i++) {
+          _onNewClaim();
+        }
+      } else {
+        _lastKnownCount = n;
+      }
+    } catch (_) {}
+  }
+
+  void _onNewClaim() {
+    if (!mounted) return;
+    if (_index == 2) return; // déjà sur l'onglet Compensations
+    setState(() => _newClaims++);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AdminTheme.orange,
+        content: Row(
+          children: const [
+            Icon(Icons.notifications_active_rounded,
+                color: Colors.white, size: 18),
+            SizedBox(width: 10),
+            Text('Nouvelle demande de compensation reçue'),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
