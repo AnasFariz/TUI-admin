@@ -16,11 +16,28 @@ class _ClaimsTabState extends State<ClaimsTab> {
   List<Map<String, dynamic>> _claims = [];
   bool _loading = true;
   String _filter = 'all';
+  RealtimeChannel? _channel;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _channel = _sb.channel('claims-tab-live')
+      ..onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'compensation_claims',
+        callback: (_) {
+          if (mounted) _load();
+        },
+      )
+      ..subscribe();
+  }
+
+  @override
+  void dispose() {
+    _channel?.unsubscribe();
+    super.dispose();
   }
 
   Future<void> _load() async {
