@@ -16,6 +16,8 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _index = 0;
+  int _newClaims = 0; // badge temps réel pour Compensations
+  RealtimeChannel? _claimsChannel;
 
   final _titles = [
     'Tableau de bord',
@@ -30,6 +32,49 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ClaimsTab(),
     NotificationsTab(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _subscribeNewClaims();
+  }
+
+  @override
+  void dispose() {
+    _claimsChannel?.unsubscribe();
+    super.dispose();
+  }
+
+  void _subscribeNewClaims() {
+    final sb = Supabase.instance.client;
+    _claimsChannel = sb.channel('admin-new-claims')
+      ..onPostgresChanges(
+        event: PostgresChangeEvent.insert,
+        schema: 'public',
+        table: 'compensation_claims',
+        callback: (payload) {
+          if (!mounted) return;
+          // N'incrémente pas si on est déjà sur l'onglet Compensations
+          if (_index == 2) return;
+          setState(() => _newClaims++);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: AdminTheme.orange,
+              content: Row(
+                children: const [
+                  Icon(Icons.notifications_active_rounded,
+                      color: Colors.white, size: 18),
+                  SizedBox(width: 10),
+                  Text('Nouvelle demande de compensation reçue'),
+                ],
+              ),
+            ),
+          );
+        },
+      )
+      ..subscribe();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -125,7 +170,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     _navItem(0, Icons.dashboard_rounded, 'Tableau de bord'),
                     _navItem(1, Icons.flight_rounded, 'Vols'),
-                    _navItem(2, Icons.payments_rounded, 'Compensations'),
+                    _navItem(2, Icons.payments_rounded, 'Compensations',
+                        badge: _newClaims),
                     _navItem(3, Icons.notifications_rounded, 'Notifications'),
                     const Spacer(),
                     // ── Carte profil admin ──
@@ -254,12 +300,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _navItem(int i, IconData icon, String label) {
+  Widget _navItem(int i, IconData icon, String label, {int badge = 0}) {
     return _NavItem(
       icon: icon,
       label: label,
       active: _index == i,
-      onTap: () => setState(() => _index = i),
+      badge: badge,
+      onTap: () => setState(() {
+        _index = i;
+        if (i == 2) _newClaims = 0; // reset compteur en ouvrant l'onglet
+      }),
     );
   }
 }
@@ -271,12 +321,14 @@ class _NavItem extends StatefulWidget {
   final IconData icon;
   final String label;
   final bool active;
+  final int badge;
   final VoidCallback onTap;
   const _NavItem({
     required this.icon,
     required this.label,
     required this.active,
     required this.onTap,
+    this.badge = 0,
   });
 
   @override
@@ -365,7 +417,30 @@ class _NavItemState extends State<_NavItem> {
                             ? Colors.white
                             : Colors.white.withValues(alpha: 0.62))),
                 const Spacer(),
-                if (active)
+                if (widget.badge > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [AdminTheme.red, Color(0xFFFF4D5E)],
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AdminTheme.red.withValues(alpha: 0.5),
+                          blurRadius: 8,
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                        widget.badge > 9 ? '9+' : widget.badge.toString(),
+                        style: GoogleFonts.inter(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white)),
+                  )
+                else if (active)
                   Icon(Icons.chevron_right_rounded,
                       size: 18, color: Colors.white.withValues(alpha: 0.5)),
               ],

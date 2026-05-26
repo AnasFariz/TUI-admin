@@ -28,13 +28,50 @@ class _ClaimsTabState extends State<ClaimsTab> {
     try {
       final rows = await _sb
           .from('compensation_claims')
-          .select()
+          .select(
+              '*, flight:flights(flight_number, departure_code, arrival_code, distance_km, status, delay_minutes)')
           .order('created_at', ascending: false);
       _claims = List<Map<String, dynamic>>.from(rows);
     } catch (_) {
       _claims = [];
     }
     if (mounted) setState(() => _loading = false);
+  }
+
+  /// Calcul EU261 : 250€ <1500km, 400€ 1500-3500km, 600€ >3500km.
+  /// Éligible si annulation OU retard ≥ 3h (180 min).
+  static ({int amount, String reason, bool eligible}) eu261(
+      Map<String, dynamic>? flight) {
+    if (flight == null) {
+      return (amount: 0, reason: 'Vol introuvable', eligible: false);
+    }
+    final status = (flight['status'] ?? '').toString();
+    final delay = (flight['delay_minutes'] as num?)?.toInt() ?? 0;
+    final dist = (flight['distance_km'] as num?)?.toInt() ?? 0;
+    final eligible = status == 'cancelled' || delay >= 180;
+    if (!eligible) {
+      return (
+        amount: 0,
+        reason: 'Non éligible (retard < 3h et non annulé)',
+        eligible: false
+      );
+    }
+    final amount = dist <= 1500
+        ? 250
+        : dist <= 3500
+            ? 400
+            : 600;
+    final cause = status == 'cancelled' ? 'Annulé' : 'Retard ${delay}min';
+    final band = dist <= 1500
+        ? '≤1500km'
+        : dist <= 3500
+            ? '1500-3500km'
+            : '>3500km';
+    return (
+      amount: amount,
+      reason: '$cause · $band',
+      eligible: true,
+    );
   }
 
   Future<void> _setStatus(Map<String, dynamic> claim, String status) async {
@@ -425,18 +462,27 @@ class _ClaimCardState extends State<_ClaimCard> {
                   color: Colors.white, size: 26),
             ),
             const SizedBox(width: 18),
-            // Montant + date
+            // Montant + date + EU261
             Expanded(
-              flex: 3,
+              flex: 4,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('${c['amount_eur'] ?? '--'} €',
-                      style: GoogleFonts.inter(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: AdminTheme.textPrimary)),
-                  const SizedBox(height: 3),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text('${c['amount_eur'] ?? '--'} €',
+                          style: GoogleFonts.inter(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              color: AdminTheme.textPrimary)),
+                      if (c['flight'] != null) ...[
+                        const SizedBox(width: 10),
+                        _Eu261Chip(flight: c['flight'] as Map<String, dynamic>),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 4),
                   Row(
                     children: [
                       Icon(Icons.calendar_today_rounded,
@@ -445,6 +491,14 @@ class _ClaimCardState extends State<_ClaimCard> {
                       Text(
                           'Soumise le ${c['created_at']?.toString().substring(0, 10) ?? '—'}',
                           style: AdminTheme.muted),
+                      if (c['flight']?['flight_number'] != null) ...[
+                        const SizedBox(width: 10),
+                        Icon(Icons.flight_rounded,
+                            size: 13, color: AdminTheme.textMuted),
+                        const SizedBox(width: 4),
+                        Text(c['flight']['flight_number'],
+                            style: AdminTheme.muted),
+                      ],
                     ],
                   ),
                 ],
@@ -522,4 +576,64 @@ class _ClaimCardState extends State<_ClaimCard> {
           ),
         ),
       );
+}
+
+// ──────────────────────────────────────────
+// CHIP MONTANT SUGGÉRÉ EU261
+// ──────────────────────────────────────────
+class _Eu261Chip extends StatelessWidget {
+  final Map<String, dynamic> flight;
+  const _Eu261Chip({required this.flight});
+
+  @override
+  Widget build(BuildContext context) {
+    final r = _ClaimsTabState.eu261(flight);
+    if (!r.eligible) {
+      return Tooltip(
+        message: r.reason,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: AdminTheme.textMuted.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.gavel_rounded, size: 11, color: AdminTheme.textMuted),
+              const SizedBox(width: 4),
+              Text('EU261 N/A',
+                  style: GoogleFonts.inter(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: AdminTheme.textMuted)),
+            ],
+          ),
+        ),
+      );
+    }
+    return Tooltip(
+      message: 'EU261 — ${r.reason}',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: AdminTheme.green.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AdminTheme.green.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.gavel_rounded, size: 11, color: AdminTheme.green),
+            const SizedBox(width: 4),
+            Text('EU261 · ${r.amount}€',
+                style: GoogleFonts.inter(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: AdminTheme.green)),
+          ],
+        ),
+      ),
+    );
+  }
 }

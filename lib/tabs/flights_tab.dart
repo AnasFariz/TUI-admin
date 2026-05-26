@@ -4,6 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme.dart';
 import '../export_service.dart';
 import '../widgets/export_button.dart';
+import '../widgets/flight_form_dialog.dart';
+import '../widgets/flight_detail_panel.dart';
 
 class FlightsTab extends StatefulWidget {
   const FlightsTab({super.key});
@@ -233,6 +235,8 @@ class _FlightsTabState extends State<FlightsTab> {
                 ],
               ),
               const Spacer(),
+              _addFlightBtn(),
+              const SizedBox(width: 10),
               ExportButton(onCsv: _exportCsv, onPdf: _exportPdf),
               const SizedBox(width: 10),
               _refreshBtn(),
@@ -437,12 +441,73 @@ class _FlightsTabState extends State<FlightsTab> {
                   child: _FlightCard(
                     flight: f,
                     onStatus: _updateStatus,
+                    onTap: () => _openDetail(f),
                   ),
                 )),
         ],
       ),
     );
   }
+
+  Future<void> _openAddDialog() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => const FlightFormDialog(),
+    );
+    if (ok == true) _load();
+  }
+
+  void _openDetail(Map<String, dynamic> flight) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Détails',
+      barrierColor: Colors.black.withValues(alpha: 0.4),
+      transitionDuration: const Duration(milliseconds: 220),
+      pageBuilder: (_, __, ___) => Align(
+        alignment: Alignment.centerRight,
+        child: FlightDetailPanel(flight: flight, onChanged: _load),
+      ),
+      transitionBuilder: (_, anim, __, child) {
+        final offset = Tween<Offset>(
+                begin: const Offset(1, 0), end: Offset.zero)
+            .animate(CurvedAnimation(parent: anim, curve: Curves.easeOut));
+        return SlideTransition(position: offset, child: child);
+      },
+    );
+  }
+
+  Widget _addFlightBtn() => InkWell(
+        onTap: _openAddDialog,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [AdminTheme.red, Color(0xFFFF3A4D)],
+            ),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: AdminTheme.red.withValues(alpha: 0.3),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.add_rounded, size: 18, color: Colors.white),
+              const SizedBox(width: 6),
+              Text('Ajouter un vol',
+                  style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white)),
+            ],
+          ),
+        ),
+      );
 
   Widget _refreshBtn() => InkWell(
         onTap: _load,
@@ -567,7 +632,9 @@ class _FlightsTabState extends State<FlightsTab> {
 class _FlightCard extends StatefulWidget {
   final Map<String, dynamic> flight;
   final Future<void> Function(Map<String, dynamic>, String, int) onStatus;
-  const _FlightCard({required this.flight, required this.onStatus});
+  final VoidCallback onTap;
+  const _FlightCard(
+      {required this.flight, required this.onStatus, required this.onTap});
 
   @override
   State<_FlightCard> createState() => _FlightCardState();
@@ -589,7 +656,10 @@ class _FlightCardState extends State<_FlightCard> {
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
-      child: AnimatedContainer(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         transform: Matrix4.translationValues(0, _hover ? -3 : 0, 0),
         decoration: BoxDecoration(
@@ -733,6 +803,7 @@ class _FlightCardState extends State<_FlightCard> {
             ],
           ),
         ),
+      ),
       ),
     );
   }
