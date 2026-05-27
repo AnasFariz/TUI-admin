@@ -91,6 +91,55 @@ class _ClaimsTabState extends State<ClaimsTab> {
     );
   }
 
+  Future<void> _delete(Map<String, dynamic> claim) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: AdminTheme.card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Supprimer cette demande ?', style: AdminTheme.h2),
+        content: Text(
+          'La demande de ${claim['amount_eur'] ?? '--'} € sera définitivement supprimée.',
+          style: AdminTheme.body,
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Annuler')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AdminTheme.red),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Supprimer',
+                style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await _sb
+          .from('compensation_claims')
+          .delete()
+          .eq('id', claim['id']);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            content: const Text('Demande supprimée'),
+            backgroundColor: AdminTheme.red,
+          ),
+        );
+      }
+      _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur : $e'), backgroundColor: AdminTheme.red),
+        );
+      }
+    }
+  }
+
   Future<void> _setStatus(Map<String, dynamic> claim, String status) async {
     try {
       await _sb
@@ -239,7 +288,8 @@ class _ClaimsTabState extends State<ClaimsTab> {
           else
             ...list.map((c) => Padding(
                   padding: const EdgeInsets.only(bottom: 14),
-                  child: _ClaimCard(claim: c, onStatus: _setStatus),
+                  child: _ClaimCard(
+                      claim: c, onStatus: _setStatus, onDelete: _delete),
                 )),
         ],
       ),
@@ -418,7 +468,9 @@ class _ClaimsTabState extends State<ClaimsTab> {
 class _ClaimCard extends StatefulWidget {
   final Map<String, dynamic> claim;
   final Future<void> Function(Map<String, dynamic>, String) onStatus;
-  const _ClaimCard({required this.claim, required this.onStatus});
+  final Future<void> Function(Map<String, dynamic>) onDelete;
+  const _ClaimCard(
+      {required this.claim, required this.onStatus, required this.onDelete});
 
   @override
   State<_ClaimCard> createState() => _ClaimCardState();
@@ -556,12 +608,34 @@ class _ClaimCardState extends State<_ClaimCard> {
               const SizedBox(width: 8),
               _btn('Rejeter', AdminTheme.red, Icons.close_rounded,
                   () => widget.onStatus(c, 'rejected')),
-            ] else
+              const SizedBox(width: 8),
+            ] else ...[
               Text('Traitée',
                   style: GoogleFonts.inter(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: AdminTheme.textMuted)),
+              const SizedBox(width: 12),
+            ],
+            // Bouton supprimer (toujours visible)
+            Tooltip(
+              message: 'Supprimer la demande',
+              child: InkWell(
+                onTap: () => widget.onDelete(c),
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.all(9),
+                  decoration: BoxDecoration(
+                    color: AdminTheme.red.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                        color: AdminTheme.red.withValues(alpha: 0.25)),
+                  ),
+                  child: Icon(Icons.delete_outline_rounded,
+                      size: 18, color: AdminTheme.red),
+                ),
+              ),
+            ),
           ],
         ),
       ),
