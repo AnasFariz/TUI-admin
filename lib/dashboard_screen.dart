@@ -6,6 +6,7 @@ import 'theme.dart';
 import 'tui_smile.dart';
 import 'tabs/stats_tab.dart';
 import 'tabs/flights_tab.dart';
+import 'tabs/reservations_tab.dart';
 import 'tabs/claims_tab.dart';
 import 'tabs/notifications_tab.dart';
 
@@ -25,6 +26,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final _titles = [
     'Tableau de bord',
     'Gestion des vols',
+    'Réservations',
     'Demandes de compensation',
     'Notifications',
   ];
@@ -32,17 +34,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final _pages = const [
     StatsTab(),
     FlightsTab(),
+    ReservationsTab(),
     ClaimsTab(),
     NotificationsTab(),
   ];
 
+  String _adminName = 'Anas Fariz';
+  String _adminTitle = 'Mr';
+
   @override
   void initState() {
     super.initState();
+    _loadAdminName();
     _initBaseline().then((_) {
       _subscribeNewClaims();
       _startPollingFallback();
     });
+  }
+
+  Future<void> _loadAdminName() async {
+    try {
+      final sb = Supabase.instance.client;
+      final uid = sb.auth.currentUser?.id;
+      if (uid == null) return;
+      final prof = await sb
+          .from('profiles')
+          .select('full_name')
+          .eq('id', uid)
+          .maybeSingle();
+      final raw = prof?['full_name']?.toString().trim();
+      if (raw != null && raw.isNotEmpty) {
+        if (mounted) setState(() => _adminName = raw);
+      }
+    } catch (_) {}
   }
 
   @override
@@ -106,7 +130,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _onNewClaim() {
     if (!mounted) return;
-    if (_index == 2) return; // déjà sur l'onglet Compensations
+    if (_index == 3) return; // déjà sur l'onglet Compensations
     setState(() => _newClaims++);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -218,9 +242,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     _navItem(0, Icons.dashboard_rounded, 'Tableau de bord'),
                     _navItem(1, Icons.flight_rounded, 'Vols'),
-                    _navItem(2, Icons.payments_rounded, 'Compensations',
+                    _navItem(2, Icons.confirmation_number_rounded,
+                        'Réservations'),
+                    _navItem(3, Icons.payments_rounded, 'Compensations',
                         badge: _newClaims),
-                    _navItem(3, Icons.notifications_rounded, 'Notifications'),
+                    _navItem(4, Icons.notifications_rounded, 'Notifications'),
                     const Spacer(),
                     // ── Carte profil admin ──
                     Padding(
@@ -252,21 +278,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
+                                  Text('$_adminTitle $_adminName',
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.inter(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w800,
+                                          color: Colors.white)),
                                   Text('Administrateur',
                                       style: GoogleFonts.inter(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.white)),
-                                  Text(
-                                    Supabase.instance.client.auth.currentUser
-                                            ?.email ??
-                                        'TUI',
-                                    overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.inter(
-                                        fontSize: 11,
-                                        color: Colors.white
-                                            .withValues(alpha: 0.55)),
-                                  ),
+                                          fontSize: 11,
+                                          color: Colors.white
+                                              .withValues(alpha: 0.55))),
                                 ],
                               ),
                             ),
@@ -356,7 +378,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       badge: badge,
       onTap: () => setState(() {
         _index = i;
-        if (i == 2) _newClaims = 0; // reset compteur en ouvrant l'onglet
+        if (i == 3) _newClaims = 0; // reset compteur en ouvrant Compensations
       }),
     );
   }
