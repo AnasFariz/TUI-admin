@@ -65,10 +65,20 @@ class ExportService {
     List<List<String>> summary = const [], // chaque entrée : [label, valeur]
   }) async {
     // Police Inter embarquée → gère €, accents, ·, etc.
-    final base = await PdfGoogleFonts.interRegular();
-    final bold = await PdfGoogleFonts.interBold();
-    final semi = await PdfGoogleFonts.interSemiBold();
-    final theme = pw.ThemeData.withFont(base: base, bold: bold);
+    // Si le téléchargement échoue (réseau/CORS), on utilise la police par défaut.
+    pw.Font? baseTmp, boldTmp, semiTmp;
+    try {
+      baseTmp = await PdfGoogleFonts.interRegular();
+      boldTmp = await PdfGoogleFonts.interBold();
+      semiTmp = await PdfGoogleFonts.interSemiBold();
+    } catch (_) {
+      baseTmp = boldTmp = semiTmp = null;
+    }
+    final theme = (baseTmp != null && boldTmp != null)
+        ? pw.ThemeData.withFont(base: baseTmp, bold: boldTmp)
+        : pw.ThemeData.base();
+    final pw.Font bold = boldTmp ?? pw.Font.helveticaBold();
+    final pw.Font semi = semiTmp ?? pw.Font.helveticaBold();
 
     final doc = pw.Document(theme: theme);
     final now = DateFormat('dd/MM/yyyy à HH:mm').format(DateTime.now());
