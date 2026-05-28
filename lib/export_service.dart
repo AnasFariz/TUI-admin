@@ -68,9 +68,12 @@ class ExportService {
     // Si le téléchargement échoue (réseau/CORS), on utilise la police par défaut.
     pw.Font? baseTmp, boldTmp, semiTmp;
     try {
-      baseTmp = await PdfGoogleFonts.interRegular();
-      boldTmp = await PdfGoogleFonts.interBold();
-      semiTmp = await PdfGoogleFonts.interSemiBold();
+      baseTmp = await PdfGoogleFonts.interRegular()
+          .timeout(const Duration(seconds: 4));
+      boldTmp = await PdfGoogleFonts.interBold()
+          .timeout(const Duration(seconds: 4));
+      semiTmp = await PdfGoogleFonts.interSemiBold()
+          .timeout(const Duration(seconds: 4));
     } catch (_) {
       baseTmp = boldTmp = semiTmp = null;
     }

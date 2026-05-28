@@ -212,20 +212,31 @@ class _ClaimsTabState extends State<ClaimsTab> {
         .fold<double>(0, (s, c) => s + ((c['amount_eur'] as num?)?.toDouble() ?? 0));
     final totalAll = list.fold<double>(
         0, (s, c) => s + ((c['amount_eur'] as num?)?.toDouble() ?? 0));
-    await ExportService.downloadPdf(
-      title: 'Demandes de compensation',
-      subtitle: 'Règlement européen EU261 — indemnisations passagers',
-      headers: _exportHeaders,
-      rows: _exportRows(),
-      filename: 'compensations_tui.pdf',
-      summary: [
-        ['Total demandes', '${list.length}'],
-        ['En attente', '$pending'],
-        ['Approuvées', '$approved'],
-        ['Montant approuvé', '${totalApproved.toStringAsFixed(0)} €'],
-        ['Montant total', '${totalAll.toStringAsFixed(0)} €'],
-      ],
-    );
+    try {
+      await ExportService.downloadPdf(
+        title: 'Demandes de compensation',
+        subtitle: 'Règlement européen EU261 — indemnisations passagers',
+        headers: _exportHeaders,
+        rows: _exportRows(),
+        filename: 'compensations_tui.pdf',
+        summary: [
+          ['Total demandes', '${list.length}'],
+          ['En attente', '$pending'],
+          ['Approuvées', '$approved'],
+          ['Montant approuvé', '${totalApproved.toStringAsFixed(0)} EUR'],
+          ['Montant total', '${totalAll.toStringAsFixed(0)} EUR'],
+        ],
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Erreur PDF : $e'),
+              backgroundColor: AdminTheme.red,
+              duration: const Duration(seconds: 8)),
+        );
+      }
+    }
   }
 
   @override
