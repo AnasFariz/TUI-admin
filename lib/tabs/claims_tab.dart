@@ -44,12 +44,32 @@ class _ClaimsTabState extends State<ClaimsTab> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
+      // 1) Demandes + vol (relation FK valide)
       final rows = await _sb
           .from('compensation_claims')
           .select(
-              '*, passenger:profiles(full_name, email, phone), flight:flights(flight_number, departure_code, departure_city, arrival_code, arrival_city, distance_km, status, delay_minutes, flight_date)')
+              '*, flight:flights(flight_number, departure_code, departure_city, arrival_code, arrival_city, distance_km, status, delay_minutes, flight_date)')
           .order('created_at', ascending: false);
-      _claims = List<Map<String, dynamic>>.from(rows);
+      final claims = List<Map<String, dynamic>>.from(rows);
+
+      // 2) Noms des passagers (chargés séparément — pas de FK directe)
+      final userIds =
+          claims.map((c) => c['user_id']?.toString()).whereType<String>().toSet();
+      if (userIds.isNotEmpty) {
+        try {
+          final profs = await _sb
+              .from('profiles')
+              .select('id, full_name, email, phone')
+              .inFilter('id', userIds.toList());
+          final byId = {for (final p in (profs as List)) p['id'].toString(): p};
+          for (final c in claims) {
+            c['passenger'] = byId[c['user_id']?.toString()];
+          }
+        } catch (_) {
+          // profiles non lisible (RLS) → on garde les demandes sans le nom
+        }
+      }
+      _claims = claims;
     } catch (_) {
       _claims = [];
     }

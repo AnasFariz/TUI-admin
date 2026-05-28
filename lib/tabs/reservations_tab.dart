@@ -30,9 +30,28 @@ class _ReservationsTabState extends State<ReservationsTab> {
       final rows = await _sb
           .from('reservations')
           .select(
-              '*, passenger:profiles(full_name, email, phone), flight:flights(flight_number, departure_code, departure_city, arrival_code, arrival_city, flight_date, status)')
+              '*, flight:flights(flight_number, departure_code, departure_city, arrival_code, arrival_city, flight_date, status)')
           .order('created_at', ascending: false);
-      _reservations = List<Map<String, dynamic>>.from(rows);
+      final resv = List<Map<String, dynamic>>.from(rows);
+
+      // Noms des passagers (chargés séparément — pas de FK directe vers profiles)
+      final userIds = resv
+          .map((r) => r['passenger_id']?.toString())
+          .whereType<String>()
+          .toSet();
+      if (userIds.isNotEmpty) {
+        try {
+          final profs = await _sb
+              .from('profiles')
+              .select('id, full_name, email, phone')
+              .inFilter('id', userIds.toList());
+          final byId = {for (final p in (profs as List)) p['id'].toString(): p};
+          for (final r in resv) {
+            r['passenger'] = byId[r['passenger_id']?.toString()];
+          }
+        } catch (_) {}
+      }
+      _reservations = resv;
     } catch (_) {
       _reservations = [];
     }
