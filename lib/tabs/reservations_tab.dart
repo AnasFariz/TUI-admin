@@ -88,13 +88,25 @@ class _ReservationsTabState extends State<ReservationsTab> {
   void _exportCsv() => ExportService.downloadCsv(
       'reservations_tui.csv', _exportHeaders, _exportRows());
 
-  Future<void> _exportPdf() => ExportService.downloadPdf(
-        title: 'Liste des réservations',
-        subtitle: '${_filtered.length} réservation(s) — TUI Belgium',
-        headers: _exportHeaders,
-        rows: _exportRows(),
-        filename: 'reservations_tui.pdf',
-      );
+  Future<void> _exportPdf() {
+    final list = _filtered;
+    final econ = list.where((r) => r['class'] == 'economy').length;
+    final biz = list.where((r) => r['class'] == 'business').length;
+    final first = list.where((r) => r['class'] == 'first').length;
+    return ExportService.downloadPdf(
+      title: 'Liste des réservations',
+      subtitle: 'Billets émis sur la plateforme — TUI Belgium',
+      headers: _exportHeaders,
+      rows: _exportRows(),
+      filename: 'reservations_tui.pdf',
+      summary: [
+        ['Total billets', '${list.length}'],
+        ['Économie', '$econ'],
+        ['Business', '$biz'],
+        ['Première', '$first'],
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {

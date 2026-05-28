@@ -203,12 +203,28 @@ class _ClaimsTabState extends State<ClaimsTab> {
   }
 
   Future<void> _exportPdf() async {
+    final list = _filtered;
+    final pending =
+        list.where((c) => (c['status'] ?? 'pending') == 'pending').length;
+    final approved = list.where((c) => c['status'] == 'approved').length;
+    final totalApproved = list
+        .where((c) => c['status'] == 'approved')
+        .fold<double>(0, (s, c) => s + ((c['amount_eur'] as num?)?.toDouble() ?? 0));
+    final totalAll = list.fold<double>(
+        0, (s, c) => s + ((c['amount_eur'] as num?)?.toDouble() ?? 0));
     await ExportService.downloadPdf(
       title: 'Demandes de compensation',
-      subtitle: '${_filtered.length} demande(s) — Règlement EU261',
+      subtitle: 'Règlement européen EU261 — indemnisations passagers',
       headers: _exportHeaders,
       rows: _exportRows(),
       filename: 'compensations_tui.pdf',
+      summary: [
+        ['Total demandes', '${list.length}'],
+        ['En attente', '$pending'],
+        ['Approuvées', '$approved'],
+        ['Montant approuvé', '${totalApproved.toStringAsFixed(0)} €'],
+        ['Montant total', '${totalAll.toStringAsFixed(0)} €'],
+      ],
     );
   }
 

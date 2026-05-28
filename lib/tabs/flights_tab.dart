@@ -195,12 +195,24 @@ class _FlightsTabState extends State<FlightsTab> {
   }
 
   Future<void> _exportPdf() async {
+    final list = _filtered;
+    final onTime = list
+        .where((f) => f['status'] != 'delayed' && f['status'] != 'cancelled')
+        .length;
+    final delayed = list.where((f) => f['status'] == 'delayed').length;
+    final cancelled = list.where((f) => f['status'] == 'cancelled').length;
     await ExportService.downloadPdf(
       title: 'Liste des vols',
-      subtitle: '${_filtered.length} vol(s) — TUI Belgium',
+      subtitle: 'État opérationnel de la flotte — TUI Belgium',
       headers: _exportHeaders,
       rows: _exportRows(),
       filename: 'vols_tui.pdf',
+      summary: [
+        ['Total vols', '${list.length}'],
+        ['À l\'heure', '$onTime'],
+        ['Retardés', '$delayed'],
+        ['Annulés', '$cancelled'],
+      ],
     );
   }
 
