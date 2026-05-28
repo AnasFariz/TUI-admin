@@ -187,7 +187,7 @@ class _ClaimsTabState extends State<ClaimsTab> {
   List<List<String>> _exportRows() {
     return _filtered
         .map((c) => [
-              '${c['amount_eur'] ?? '--'} €',
+              '${c['amount_eur'] ?? '--'} EUR',
               _statusLabel((c['status'] ?? 'pending').toString()),
               (c['iban'] ?? '—').toString(),
               c['created_at']?.toString().substring(0, 10) ?? '',

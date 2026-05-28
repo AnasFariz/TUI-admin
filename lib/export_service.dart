@@ -4,7 +4,6 @@ import 'dart:js_interop';
 import 'package:web/web.dart' as web;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 import 'package:intl/intl.dart';
 
 /// Service d'export CSV / PDF pour le dashboard admin TUI.
@@ -24,7 +23,8 @@ class ExportService {
       ..href = url
       ..download = filename
       ..style.display = 'none';
-    web.document.body!.appendChild(anchor);
+    final parent = web.document.body ?? web.document.documentElement;
+    parent?.appendChild(anchor);
     anchor.click();
     anchor.remove();
     web.URL.revokeObjectURL(url);
@@ -64,26 +64,15 @@ class ExportService {
     required String filename,
     List<List<String>> summary = const [], // chaque entrée : [label, valeur]
   }) async {
-    // Police Inter embarquée → gère €, accents, ·, etc.
-    // Si le téléchargement échoue (réseau/CORS), on utilise la police par défaut.
-    pw.Font? baseTmp, boldTmp, semiTmp;
-    try {
-      baseTmp = await PdfGoogleFonts.interRegular()
-          .timeout(const Duration(seconds: 4));
-      boldTmp = await PdfGoogleFonts.interBold()
-          .timeout(const Duration(seconds: 4));
-      semiTmp = await PdfGoogleFonts.interSemiBold()
-          .timeout(const Duration(seconds: 4));
-    } catch (_) {
-      baseTmp = boldTmp = semiTmp = null;
-    }
-    final theme = (baseTmp != null && boldTmp != null)
-        ? pw.ThemeData.withFont(base: baseTmp, bold: boldTmp)
-        : pw.ThemeData.base();
-    final pw.Font bold = boldTmp ?? pw.Font.helveticaBold();
-    final pw.Font semi = semiTmp ?? pw.Font.helveticaBold();
-
-    final doc = pw.Document(theme: theme);
+    // Polices intégrées (Helvetica WinAnsi) — aucune dépendance réseau.
+    final pw.Font bold = pw.Font.helveticaBold();
+    final pw.Font semi = pw.Font.helveticaBold();
+    final doc = pw.Document(
+      theme: pw.ThemeData.withFont(
+        base: pw.Font.helvetica(),
+        bold: pw.Font.helveticaBold(),
+      ),
+    );
     final now = DateFormat('dd/MM/yyyy à HH:mm').format(DateTime.now());
     final ref =
         'TUI-${DateFormat('yyyyMMdd-HHmm').format(DateTime.now())}';
