@@ -1,9 +1,9 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'dart:js_interop';
 import 'package:web/web.dart' as web;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 import 'package:intl/intl.dart';
 
 /// Service d'export CSV / PDF pour le dashboard admin TUI.
@@ -11,6 +11,23 @@ class ExportService {
   static const _navy = PdfColor.fromInt(0xFF0F1F4D);
   static const _red = PdfColor.fromInt(0xFFE2001A);
   static const _grey = PdfColor.fromInt(0xFFF4F6FB);
+
+  /// Téléchargement robuste via Blob + ancre ajoutée au DOM.
+  static void _download(String filename, Uint8List bytes, String mime) {
+    final blob = web.Blob(
+      <JSUint8Array>[bytes.toJS].toJS,
+      web.BlobPropertyBag(type: mime),
+    );
+    final url = web.URL.createObjectURL(blob);
+    final anchor = web.HTMLAnchorElement()
+      ..href = url
+      ..download = filename
+      ..style.display = 'none';
+    web.document.body!.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    web.URL.revokeObjectURL(url);
+  }
 
   // ──────────────────────────────────────────
   // CSV
@@ -24,17 +41,8 @@ class ExportService {
     }
     // BOM UTF-8 pour Excel
     final content = '﻿${buffer.toString()}';
-    final bytes = utf8.encode(content);
-    final blob = web.Blob(
-      [bytes.toJS].toJS,
-      web.BlobPropertyBag(type: 'text/csv;charset=utf-8'),
-    );
-    final url = web.URL.createObjectURL(blob);
-    final anchor = web.HTMLAnchorElement()
-      ..href = url
-      ..download = filename;
-    anchor.click();
-    web.URL.revokeObjectURL(url);
+    _download(filename, Uint8List.fromList(utf8.encode(content)),
+        'text/csv;charset=utf-8');
   }
 
   static String _escape(String v) {
@@ -93,10 +101,8 @@ class ExportService {
       ),
     );
 
-    await Printing.layoutPdf(
-      onLayout: (format) => doc.save(),
-      name: filename,
-    );
+    final bytes = await doc.save();
+    _download(filename, bytes, 'application/pdf');
   }
 
   static pw.Widget _header(String title, String subtitle, String date) {
