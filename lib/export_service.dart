@@ -63,6 +63,10 @@ class ExportService {
     required List<List<String>> rows,
     required String filename,
     List<List<String>> summary = const [], // chaque entrée : [label, valeur]
+    String? intro, // paragraphe d'introduction
+    List<List<String>> sections = const [], // [titre, corps] blocs de texte
+    String tableTitle = 'Detail',
+    bool landscape = false,
   }) async {
     final doc = pw.Document();
     final now = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
@@ -70,28 +74,68 @@ class ExportService {
 
     doc.addPage(
       pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
+        pageFormat:
+            landscape ? PdfPageFormat.a4.landscape : PdfPageFormat.a4,
         margin: const pw.EdgeInsets.fromLTRB(36, 32, 36, 40),
         build: (ctx) => [
           _brandHeader(now, ref),
           pw.SizedBox(height: 18),
           _titleBlock(title, subtitle),
+          if (intro != null) ...[
+            pw.SizedBox(height: 14),
+            _paragraph(intro),
+          ],
           if (summary.isNotEmpty) ...[
             pw.SizedBox(height: 16),
             _summaryCards(summary),
           ],
-          pw.SizedBox(height: 20),
+          pw.SizedBox(height: 22),
+          _sectionTitle(tableTitle),
+          pw.SizedBox(height: 8),
           _table(headers, rows),
-          pw.SizedBox(height: 24),
+          for (final s in sections) ...[
+            pw.SizedBox(height: 20),
+            _sectionTitle(s[0]),
+            pw.SizedBox(height: 6),
+            _paragraph(s[1]),
+          ],
+          pw.SizedBox(height: 26),
           pw.Divider(color: PdfColors.grey300, thickness: .5),
-          pw.Text('TUI Belgium — Document confidentiel',
-              style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey500)),
+          pw.SizedBox(height: 4),
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text('TUI Belgium - Document confidentiel',
+                  style: const pw.TextStyle(
+                      fontSize: 8, color: PdfColors.grey500)),
+              pw.Text('Genere automatiquement par la console d\'administration',
+                  style: const pw.TextStyle(
+                      fontSize: 8, color: PdfColors.grey500)),
+            ],
+          ),
         ],
       ),
     );
 
     final bytes = await doc.save();
     _download(filename, bytes, 'application/pdf');
+  }
+
+  static pw.Widget _sectionTitle(String t) {
+    return pw.Row(children: [
+      pw.Container(width: 4, height: 14, color: _red),
+      pw.SizedBox(width: 8),
+      pw.Text(t,
+          style: pw.TextStyle(
+              fontSize: 13, fontWeight: pw.FontWeight.bold, color: _navy)),
+    ]);
+  }
+
+  static pw.Widget _paragraph(String text) {
+    return pw.Text(text,
+        textAlign: pw.TextAlign.justify,
+        style: const pw.TextStyle(
+            fontSize: 9.5, color: PdfColors.grey800, lineSpacing: 2.5));
   }
 
   static pw.Widget _brandHeader(String date, String ref) {

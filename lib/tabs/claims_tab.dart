@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:intl/intl.dart';
 import '../theme.dart';
 import '../export_service.dart';
 import '../widgets/export_button.dart';
@@ -46,7 +47,7 @@ class _ClaimsTabState extends State<ClaimsTab> {
       final rows = await _sb
           .from('compensation_claims')
           .select(
-              '*, flight:flights(flight_number, departure_code, arrival_code, distance_km, status, delay_minutes)')
+              '*, passenger:profiles(full_name, email, phone), flight:flights(flight_number, departure_code, departure_city, arrival_code, arrival_city, distance_km, status, delay_minutes, flight_date)')
           .order('created_at', ascending: false);
       _claims = List<Map<String, dynamic>>.from(rows);
     } catch (_) {
@@ -185,17 +186,43 @@ class _ClaimsTabState extends State<ClaimsTab> {
       };
 
   List<List<String>> _exportRows() {
-    return _filtered
-        .map((c) => [
-              '${c['amount_eur'] ?? '--'} EUR',
-              _statusLabel((c['status'] ?? 'pending').toString()),
-              (c['iban'] ?? '—').toString(),
-              c['created_at']?.toString().substring(0, 10) ?? '',
-            ])
-        .toList();
+    return _filtered.map<List<String>>((c) {
+      final p = c['passenger'] as Map<String, dynamic>?;
+      final f = c['flight'] as Map<String, dynamic>?;
+      final pax = (p?['full_name']?.toString().trim().isNotEmpty == true)
+          ? p!['full_name'].toString()
+          : (p?['email'] ?? '—').toString();
+      final r = eu261(f);
+      final cause = f == null
+          ? '—'
+          : (f['status'] == 'cancelled'
+              ? 'Vol annule'
+              : 'Retard ${(f['delay_minutes'] as num?)?.toInt() ?? 0} min');
+      return [
+        pax,
+        (f?['flight_number'] ?? '—').toString(),
+        '${f?['departure_code'] ?? '?'} - ${f?['arrival_code'] ?? '?'}',
+        cause,
+        '${c['amount_eur'] ?? '--'} EUR',
+        r.eligible ? 'Oui (${r.amount} EUR)' : 'Non',
+        _statusLabel((c['status'] ?? 'pending').toString()),
+        (c['iban'] ?? '—').toString(),
+        c['created_at']?.toString().substring(0, 10) ?? '',
+      ];
+    }).toList();
   }
 
-  static const _exportHeaders = ['Montant', 'Statut', 'IBAN', 'Date'];
+  static const _exportHeaders = [
+    'Passager',
+    'Vol',
+    'Trajet',
+    'Cause',
+    'Montant',
+    'EU261',
+    'Statut',
+    'IBAN',
+    'Date',
+  ];
 
   void _exportCsv() {
     ExportService.downloadCsv(
@@ -212,19 +239,55 @@ class _ClaimsTabState extends State<ClaimsTab> {
         .fold<double>(0, (s, c) => s + ((c['amount_eur'] as num?)?.toDouble() ?? 0));
     final totalAll = list.fold<double>(
         0, (s, c) => s + ((c['amount_eur'] as num?)?.toDouble() ?? 0));
+    final rejected = list.where((c) => c['status'] == 'rejected').length;
     try {
       await ExportService.downloadPdf(
-        title: 'Demandes de compensation',
-        subtitle: 'Règlement européen EU261 — indemnisations passagers',
+        title: 'Rapport des demandes de compensation',
+        subtitle: 'Reglement (CE) n 261/2004 - Droits des passagers aeriens',
+        filename: 'compensations_tui.pdf',
+        tableTitle: 'Detail des demandes',
+        landscape: true,
+        intro:
+            'Le present document recapitule l\'ensemble des demandes d\'indemnisation '
+            'soumises par les passagers de TUI Belgium au titre du Reglement europeen '
+            '(CE) n 261/2004. Ce reglement etablit des regles communes en matiere '
+            'd\'indemnisation et d\'assistance des passagers en cas de refus d\'embarquement, '
+            'd\'annulation ou de retard important d\'un vol. Chaque demande ci-dessous a ete '
+            'evaluee selon la distance du vol et la nature de la perturbation. Genere le '
+            '${DateFormat('dd MMMM yyyy à HH:mm', 'fr_FR').format(DateTime.now())}.',
         headers: _exportHeaders,
         rows: _exportRows(),
-        filename: 'compensations_tui.pdf',
         summary: [
           ['Total demandes', '${list.length}'],
           ['En attente', '$pending'],
-          ['Approuvées', '$approved'],
-          ['Montant approuvé', '${totalApproved.toStringAsFixed(0)} EUR'],
-          ['Montant total', '${totalAll.toStringAsFixed(0)} EUR'],
+          ['Approuvees', '$approved'],
+          ['Rejetees', '$rejected'],
+          ['Montant approuve', '${totalApproved.toStringAsFixed(0)} EUR'],
+        ],
+        sections: [
+          [
+            'Bareme d\'indemnisation EU261',
+            'Le montant de l\'indemnisation est determine en fonction de la distance du vol : '
+                '250 EUR pour les vols de 1500 km ou moins ; 400 EUR pour les vols intracommunautaires '
+                'de plus de 1500 km et tous les autres vols compris entre 1500 et 3500 km ; '
+                '600 EUR pour les vols de plus de 3500 km. Le passager est eligible uniquement si '
+                'le vol a ete annule ou retarde de trois heures ou plus a l\'arrivee, sauf circonstances '
+                'extraordinaires echappant au controle du transporteur (conditions meteorologiques '
+                'extremes, risques lies a la securite, greves externes, etc.).',
+          ],
+          [
+            'Modalites de versement',
+            'Les indemnisations approuvees sont versees par virement SEPA sur le compte bancaire '
+                'communique par le passager (IBAN), dans un delai maximal de sept jours ouvres a compter '
+                'de la date d\'approbation. Le passager recoit une confirmation par courrier electronique. '
+                'Toute contestation peut etre adressee au service relation clients de TUI Belgium.',
+          ],
+          [
+            'Total a verser',
+            'Le montant total des indemnisations approuvees et en attente de versement s\'eleve a '
+                '${totalApproved.toStringAsFixed(0)} EUR pour la periode consideree, '
+                'correspondant a $approved demande(s) approuvee(s) sur un total de ${list.length} demande(s) traitee(s).',
+          ],
         ],
       );
     } catch (e) {
