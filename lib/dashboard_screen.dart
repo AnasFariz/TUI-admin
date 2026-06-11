@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'theme.dart';
-import 'tui_smile.dart';
 import 'tabs/stats_tab.dart';
 import 'tabs/flights_tab.dart';
 import 'tabs/reservations_tab.dart';
@@ -40,7 +39,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   ];
 
   String _adminName = 'Anas Fariz';
-  String _adminTitle = 'Mr';
+  final String _adminTitle = 'Mr';
 
   @override
   void initState() {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
@@ -163,18 +164,22 @@ class _ClaimsTabState extends State<ClaimsTab> {
 
   Future<void> _setStatus(Map<String, dynamic> claim, String status) async {
     try {
-      await _sb
-          .from('compensation_claims')
-          .update({'status': status}).eq('id', claim['id']);
+      await _sb.from('compensation_claims').update({
+        'status': status,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      }).eq('id', claim['id']);
       if (mounted) {
+        final (msg, bg) = switch (status) {
+          'approved' => ('Demande approuvée', AdminTheme.green),
+          'rejected' => ('Demande rejetée', AdminTheme.red),
+          'paid' => ('Indemnisation marquée comme payée', AdminTheme.navy),
+          _ => ('Statut mis à jour', AdminTheme.navy),
+        };
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             behavior: SnackBarBehavior.floating,
-            content: Text(status == 'approved'
-                ? 'Demande approuvée'
-                : 'Demande rejetée'),
-            backgroundColor:
-                status == 'approved' ? AdminTheme.green : AdminTheme.red,
+            content: Text(msg),
+            backgroundColor: bg,
           ),
         );
       }
@@ -257,8 +262,6 @@ class _ClaimsTabState extends State<ClaimsTab> {
     final totalApproved = list
         .where((c) => c['status'] == 'approved')
         .fold<double>(0, (s, c) => s + ((c['amount_eur'] as num?)?.toDouble() ?? 0));
-    final totalAll = list.fold<double>(
-        0, (s, c) => s + ((c['amount_eur'] as num?)?.toDouble() ?? 0));
     final rejected = list.where((c) => c['status'] == 'rejected').length;
     try {
       await ExportService.downloadPdf(
@@ -331,9 +334,10 @@ class _ClaimsTabState extends State<ClaimsTab> {
     final approved =
         _claims.where((c) => c['status'] == 'approved').length;
     final rejected = _claims.where((c) => c['status'] == 'rejected').length;
+    final paid = _claims.where((c) => c['status'] == 'paid').length;
     final totalApproved = _sum((c) => c['status'] == 'approved');
-    final totalPending =
-        _sum((c) => (c['status'] ?? 'pending') == 'pending');
+    final totalPaid = _sum((c) => c['status'] == 'paid');
+    final totalPending = _sum((c) => (c['status'] ?? 'pending') == 'pending');
     final list = _filtered;
 
     return SingleChildScrollView(
@@ -367,14 +371,16 @@ class _ClaimsTabState extends State<ClaimsTab> {
               _amountCard('À traiter', totalPending, pending, AdminTheme.orange,
                   Icons.hourglass_top_rounded, true),
               const SizedBox(width: 16),
-              _amountCard('Approuvé', totalApproved, approved, AdminTheme.green,
-                  Icons.verified_rounded, false),
+              // Approuvées mais pas encore versées = argent à payer
+              _amountCard('À payer', totalApproved, approved, AdminTheme.green,
+                  Icons.account_balance_rounded, true),
+              const SizedBox(width: 16),
+              // Déjà versées
+              _amountCard('Payé', totalPaid, paid, AdminTheme.navy,
+                  Icons.payments_rounded, false),
               const SizedBox(width: 16),
               _miniCount('Rejetées', rejected, AdminTheme.red,
                   Icons.block_rounded),
-              const SizedBox(width: 16),
-              _miniCount('Total demandes', _claims.length, AdminTheme.navy,
-                  Icons.receipt_long_rounded),
             ],
           ),
           const SizedBox(height: 24),
@@ -387,6 +393,8 @@ class _ClaimsTabState extends State<ClaimsTab> {
               _filterChip('pending', 'En attente', pending),
               const SizedBox(width: 8),
               _filterChip('approved', 'Approuvées', approved),
+              const SizedBox(width: 8),
+              _filterChip('paid', 'Payées', paid),
               const SizedBox(width: 8),
               _filterChip('rejected', 'Rejetées', rejected),
             ],
@@ -599,7 +607,7 @@ class _ClaimCardState extends State<_ClaimCard> {
       'paid' => (AdminTheme.navy, 'Payée', Icons.payments_rounded),
       _ => (AdminTheme.orange, 'En attente', Icons.hourglass_top_rounded),
     };
-    final pending = status == 'pending';
+    final iban = (c['iban'] ?? '').toString().trim();
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
@@ -680,6 +688,11 @@ class _ClaimCardState extends State<_ClaimCard> {
                       ],
                     ],
                   ),
+                  // IBAN du passager (où virer l'argent) + bouton copier
+                  if (iban.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    _IbanRow(iban: iban),
+                  ],
                 ],
               ),
             ),
@@ -711,16 +724,36 @@ class _ClaimCardState extends State<_ClaimCard> {
                 ),
               ),
             ),
-            // Actions
-            if (pending) ...[
+            // Actions selon le statut
+            if (status == 'pending') ...[
               _btn('Approuver', AdminTheme.green, Icons.check_rounded,
                   () => widget.onStatus(c, 'approved')),
               const SizedBox(width: 8),
               _btn('Rejeter', AdminTheme.red, Icons.close_rounded,
                   () => widget.onStatus(c, 'rejected')),
               const SizedBox(width: 8),
+            ] else if (status == 'approved') ...[
+              // Approuvée → reste à verser l'argent puis marquer payée
+              _btn('Marquer payée', AdminTheme.navy, Icons.payments_rounded,
+                  () => widget.onStatus(c, 'paid')),
+              const SizedBox(width: 8),
+            ] else if (status == 'paid') ...[
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.check_circle_rounded,
+                      size: 16, color: AdminTheme.green),
+                  const SizedBox(width: 6),
+                  Text('Versée',
+                      style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AdminTheme.green)),
+                ],
+              ),
+              const SizedBox(width: 12),
             ] else ...[
-              Text('Traitée',
+              Text('Rejetée',
                   style: GoogleFonts.inter(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -777,6 +810,78 @@ class _ClaimCardState extends State<_ClaimCard> {
           ),
         ),
       );
+}
+
+// ──────────────────────────────────────────
+// LIGNE IBAN (copiable) — où virer l'indemnisation
+// ──────────────────────────────────────────
+class _IbanRow extends StatefulWidget {
+  final String iban;
+  const _IbanRow({required this.iban});
+
+  @override
+  State<_IbanRow> createState() => _IbanRowState();
+}
+
+class _IbanRowState extends State<_IbanRow> {
+  bool _copied = false;
+
+  Future<void> _copy() async {
+    await Clipboard.setData(ClipboardData(text: widget.iban));
+    if (!mounted) return;
+    setState(() => _copied = true);
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _copied = false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: _copy,
+      borderRadius: BorderRadius.circular(9),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: AdminTheme.bg,
+          borderRadius: BorderRadius.circular(9),
+          border: Border.all(color: AdminTheme.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.account_balance_rounded,
+                size: 13, color: AdminTheme.textMuted),
+            const SizedBox(width: 6),
+            Text('IBAN',
+                style: GoogleFonts.inter(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                    color: AdminTheme.textMuted)),
+            const SizedBox(width: 8),
+            Text(widget.iban,
+                style: GoogleFonts.robotoMono(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AdminTheme.textPrimary)),
+            const SizedBox(width: 10),
+            Icon(_copied ? Icons.check_rounded : Icons.copy_rounded,
+                size: 13,
+                color: _copied ? AdminTheme.green : AdminTheme.textSecondary),
+            const SizedBox(width: 3),
+            Text(_copied ? 'Copié' : 'Copier',
+                style: GoogleFonts.inter(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: _copied
+                        ? AdminTheme.green
+                        : AdminTheme.textSecondary)),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // ──────────────────────────────────────────

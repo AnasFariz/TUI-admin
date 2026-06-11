@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -5,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme.dart';
+import '../widgets/service_health.dart';
 
 class StatsTab extends StatefulWidget {
   const StatsTab({super.key});
@@ -15,22 +17,72 @@ class StatsTab extends StatefulWidget {
 class _StatsTabState extends State<StatsTab> {
   final _sb = Supabase.instance.client;
   bool _loading = true;
+  bool _refreshing = false;
+  DateTime? _lastUpdate;
+
   int _totalFlights = 0;
   int _onTime = 0;
   int _delayed = 0;
   int _cancelled = 0;
   int _reservations = 0;
   int _claims = 0;
+
   List<Map<String, dynamic>> _activity = [];
+
+  // Dates de création (pour les tendances semaine/semaine)
+  List<DateTime> _flightDates = [];
+  List<DateTime> _reservationDates = [];
+  List<DateTime> _claimDates = [];
+
+  // Vols perturbés avec leur date (pour la courbe réelle)
+  List<DateTime> _disruptedFlightDays = [];
+
+  // Période de la courbe : 7 ou 30 jours
+  int _periodDays = 7;
+
+  // Auto-refresh
+  RealtimeChannel? _channel;
+  Timer? _poll;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _subscribeRealtime();
+    _poll = Timer.periodic(
+        const Duration(seconds: 30), (_) => _load(silent: true));
   }
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
+  @override
+  void dispose() {
+    _channel?.unsubscribe();
+    _poll?.cancel();
+    super.dispose();
+  }
+
+  /// Réabonnement realtime sur les 3 tables clés → rechargement auto.
+  void _subscribeRealtime() {
+    final token = _sb.auth.currentSession?.accessToken;
+    if (token != null) _sb.realtime.setAuth(token);
+    _channel = _sb.channel('admin-dashboard');
+    for (final table in ['flights', 'reservations', 'compensation_claims']) {
+      _channel!.onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: table,
+        callback: (_) => _load(silent: true),
+      );
+    }
+    _channel!.subscribe();
+  }
+
+  Future<void> _load({bool silent = false}) async {
+    if (!mounted) return;
+    if (silent) {
+      setState(() => _refreshing = true);
+    } else {
+      setState(() => _loading = true);
+    }
     try {
       final flights =
           List<Map<String, dynamic>>.from(await _sb.from('flights').select());
@@ -38,6 +90,7 @@ class _StatsTabState extends State<StatsTab> {
       _onTime = flights.where((f) => f['status'] == 'on_time').length;
       _delayed = flights.where((f) => f['status'] == 'delayed').length;
       _cancelled = flights.where((f) => f['status'] == 'cancelled').length;
+      _flightDates = _datesOf(flights, 'created_at');
 
       // Flux d'activité : vols perturbés (données réelles)
       _activity = flights
@@ -45,17 +98,68 @@ class _StatsTabState extends State<StatsTab> {
               f['status'] == 'delayed' || f['status'] == 'cancelled')
           .toList();
 
+      // Jours de perturbation réels (basés sur flight_date) pour la courbe
+      _disruptedFlightDays = _activity
+          .map((f) => DateTime.tryParse(f['flight_date']?.toString() ?? ''))
+          .whereType<DateTime>()
+          .map((d) => DateTime(d.year, d.month, d.day))
+          .toList();
+
       try {
-        final r = await _sb.from('reservations').select();
-        _reservations = (r as List).length;
+        final r = List<Map<String, dynamic>>.from(
+            await _sb.from('reservations').select());
+        _reservations = r.length;
+        _reservationDates = _datesOf(r, 'created_at');
       } catch (_) {}
       try {
-        final c = await _sb.from('compensation_claims').select();
-        _claims = (c as List).length;
+        final c = List<Map<String, dynamic>>.from(
+            await _sb.from('compensation_claims').select());
+        _claims = c.length;
+        _claimDates = _datesOf(c, 'created_at');
       } catch (_) {}
+      _lastUpdate = DateTime.now();
     } catch (_) {}
-    if (mounted) setState(() => _loading = false);
+    if (mounted) {
+      setState(() {
+        _loading = false;
+        _refreshing = false;
+      });
+    }
   }
+
+  /// Extrait et parse une colonne timestamp d'une liste de lignes.
+  List<DateTime> _datesOf(List<Map<String, dynamic>> rows, String col) => rows
+      .map((r) => DateTime.tryParse(r[col]?.toString() ?? '')?.toLocal())
+      .whereType<DateTime>()
+      .toList();
+
+  /// Tendance semaine vs semaine précédente. `null` si pas d'historique
+  /// (on n'invente pas de pourcentage → honnête pour la soutenance).
+  _Trend? _wowTrend(List<DateTime> dates, {bool goodWhenUp = true}) {
+    final now = DateTime.now();
+    int last = 0, prev = 0;
+    for (final d in dates) {
+      final diff = now.difference(d).inDays;
+      if (diff >= 0 && diff < 7) {
+        last++;
+      } else if (diff >= 7 && diff < 14) {
+        prev++;
+      }
+    }
+    if (prev == 0) return null; // pas de base de comparaison fiable
+    final pct = ((last - prev) / prev * 100).round();
+    final up = pct >= 0;
+    final good = goodWhenUp ? up : !up;
+    return _Trend(
+      '${up ? '+' : ''}$pct%',
+      up ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+      good ? AdminTheme.green : AdminTheme.red,
+    );
+  }
+
+  /// Pastille neutre (part / ratio), pas une fausse tendance.
+  _Trend _flat(String text) =>
+      _Trend(text, null, AdminTheme.textMuted);
 
   @override
   Widget build(BuildContext context) {
@@ -64,6 +168,8 @@ class _StatsTabState extends State<StatsTab> {
     final disrupted = _delayed + _cancelled;
     final disruptRate =
         _totalFlights > 0 ? (disrupted / _totalFlights * 100).round() : 0;
+    final punctuality =
+        _totalFlights > 0 ? (_onTime / _totalFlights * 100).round() : 0;
     final now = DateTime.now();
     final dateStr = DateFormat("EEEE d MMMM yyyy", 'fr_FR').format(now);
 
@@ -74,22 +180,38 @@ class _StatsTabState extends State<StatsTab> {
         children: [
           // ── Header de bienvenue dynamique ──
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Bonjour 👋',
-                      style: GoogleFonts.inter(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w800,
-                          color: AdminTheme.textPrimary)),
-                  const SizedBox(height: 2),
-                  Text(
-                      '${dateStr[0].toUpperCase()}${dateStr.substring(1)} · $_totalFlights vols suivis',
-                      style: AdminTheme.muted),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Bonjour 👋',
+                        style: GoogleFonts.inter(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                            color: AdminTheme.textPrimary)),
+                    const SizedBox(height: 2),
+                    Text(
+                        '${dateStr[0].toUpperCase()}${dateStr.substring(1)} · $_totalFlights vols suivis',
+                        style: AdminTheme.muted),
+                  ],
+                ),
               ),
-              const Spacer(),
+              const SizedBox(width: 12),
+              // Heure de dernière mise à jour
+              if (_lastUpdate != null)
+                Padding(
+                  padding: const EdgeInsets.only(right: 12, top: 4),
+                  child: Text(
+                      'Mis à jour à ${DateFormat('HH:mm:ss').format(_lastUpdate!)}',
+                      style: GoogleFonts.inter(
+                          fontSize: 11, color: AdminTheme.textMuted)),
+                ),
+              // Bouton rafraîchir
+              _RefreshButton(
+                  spinning: _refreshing, onTap: () => _load(silent: true)),
+              const SizedBox(width: 12),
               // Indicateur LIVE
               Container(
                 padding:
@@ -117,21 +239,27 @@ class _StatsTabState extends State<StatsTab> {
           ),
           const SizedBox(height: 24),
 
-          // ── KPI cards (animés + hover + tendance) ──
+          // ── État des services (santé API en direct) ──
+          const ServiceHealthSection(),
+          const SizedBox(height: 28),
+
+          // ── KPI cards (animés + hover + tendance RÉELLE) ──
           Row(
             children: [
               _KpiCard('Vols totaux', _totalFlights, Icons.flight_rounded,
-                  AdminTheme.navy, 'Tous les vols', '+8%', true),
+                  AdminTheme.navy, 'Tous les vols',
+                  trend: _wowTrend(_flightDates)),
               const SizedBox(width: 18),
               _KpiCard('À l\'heure', _onTime, Icons.check_circle_rounded,
-                  AdminTheme.green, 'Vols ponctuels', '+5%', true),
+                  AdminTheme.green, 'Ponctualité',
+                  trend: _flat('$punctuality%')),
               const SizedBox(width: 18),
               _KpiCard('Perturbés', disrupted, Icons.warning_amber_rounded,
-                  AdminTheme.orange, 'Retards + annulations', '-3%', false),
+                  AdminTheme.orange, 'Retards + annulations',
+                  trend: _flat('$disruptRate% du total')),
               const SizedBox(width: 18),
               _KpiCard('Taux perturbation', disruptRate,
                   Icons.trending_up_rounded, AdminTheme.red, 'Sur le total',
-                  '-2%', false,
                   suffix: '%'),
             ],
           ),
@@ -140,10 +268,12 @@ class _StatsTabState extends State<StatsTab> {
             children: [
               _KpiCard('Réservations', _reservations,
                   Icons.confirmation_number_rounded, AdminTheme.navyLight,
-                  'Passagers', '+12%', true),
+                  'Passagers',
+                  trend: _wowTrend(_reservationDates)),
               const SizedBox(width: 18),
               _KpiCard('Compensations', _claims, Icons.payments_rounded,
-                  AdminTheme.orange, 'Demandes EU261', '+1', true),
+                  AdminTheme.orange, 'Demandes EU261',
+                  trend: _wowTrend(_claimDates, goodWhenUp: false)),
               const SizedBox(width: 18),
               const Expanded(child: SizedBox()),
               const SizedBox(width: 18),
@@ -157,7 +287,7 @@ class _StatsTabState extends State<StatsTab> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(flex: 3, child: _evolutionChart(disrupted)),
+                Expanded(flex: 3, child: _evolutionChart()),
                 const SizedBox(width: 18),
                 Expanded(flex: 2, child: _activityFeed()),
               ],
@@ -172,14 +302,20 @@ class _StatsTabState extends State<StatsTab> {
     );
   }
 
-  // ── Graphique d'évolution (area chart 7 jours) ──
-  Widget _evolutionChart(int disruptedToday) {
-    // Série 7 jours : 6 jours simulés + aujourd'hui (réel)
-    final rng = math.Random(7);
-    final data = List.generate(6, (_) => 1 + rng.nextInt(6).toDouble());
-    data.add(disruptedToday.toDouble());
-    final days = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
-    final maxY = (data.reduce(math.max) + 2);
+  // ── Graphique d'évolution RÉEL (perturbations par jour) ──
+  Widget _evolutionChart() {
+    final days = _periodDays;
+    final today = DateTime.now();
+    final start = DateTime(today.year, today.month, today.day)
+        .subtract(Duration(days: days - 1));
+
+    // Comptage réel : perturbations par jour sur la fenêtre choisie
+    final counts = List<double>.filled(days, 0);
+    for (final d in _disruptedFlightDays) {
+      final idx = d.difference(start).inDays;
+      if (idx >= 0 && idx < days) counts[idx] += 1;
+    }
+    final maxY = math.max(counts.reduce(math.max) + 2, 4.0);
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -187,10 +323,25 @@ class _StatsTabState extends State<StatsTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Évolution des perturbations',
-              style: AdminTheme.h2),
-          const SizedBox(height: 4),
-          Text('7 derniers jours', style: AdminTheme.muted),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Évolution des perturbations', style: AdminTheme.h2),
+                    const SizedBox(height: 4),
+                    Text('$days derniers jours', style: AdminTheme.muted),
+                  ],
+                ),
+              ),
+              // Sélecteur de période
+              _PeriodToggle(
+                value: _periodDays,
+                onChanged: (v) => setState(() => _periodDays = v),
+              ),
+            ],
+          ),
           const SizedBox(height: 24),
           SizedBox(
             height: 200,
@@ -202,8 +353,8 @@ class _StatsTabState extends State<StatsTab> {
                   show: true,
                   drawVerticalLine: false,
                   horizontalInterval: maxY / 4,
-                  getDrawingHorizontalLine: (_) => FlLine(
-                      color: AdminTheme.border, strokeWidth: 1),
+                  getDrawingHorizontalLine: (_) =>
+                      FlLine(color: AdminTheme.border, strokeWidth: 1),
                 ),
                 titlesData: FlTitlesData(
                   topTitles: const AxisTitles(
@@ -223,16 +374,24 @@ class _StatsTabState extends State<StatsTab> {
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
+                      interval: 1,
                       getTitlesWidget: (v, _) {
                         final i = v.toInt();
-                        if (i < 0 || i >= days.length) {
-                          return const SizedBox();
-                        }
+                        if (i < 0 || i >= days) return const SizedBox();
+                        final date = start.add(Duration(days: i));
+                        // 7j → lettre du jour ; 30j → 1 label sur 5
+                        final show = days <= 7 || i % 5 == 0 || i == days - 1;
+                        if (!show) return const SizedBox();
+                        final label = days <= 7
+                            ? DateFormat('E', 'fr_FR')
+                                .format(date)[0]
+                                .toUpperCase()
+                            : DateFormat('d/M').format(date);
                         return Padding(
                           padding: const EdgeInsets.only(top: 8),
-                          child: Text(days[i],
+                          child: Text(label,
                               style: GoogleFonts.inter(
-                                  fontSize: 11,
+                                  fontSize: 10,
                                   fontWeight: FontWeight.w600,
                                   color: AdminTheme.textMuted)),
                         );
@@ -244,15 +403,15 @@ class _StatsTabState extends State<StatsTab> {
                 lineBarsData: [
                   LineChartBarData(
                     spots: [
-                      for (int i = 0; i < data.length; i++)
-                        FlSpot(i.toDouble(), data[i]),
+                      for (int i = 0; i < counts.length; i++)
+                        FlSpot(i.toDouble(), counts[i]),
                     ],
                     isCurved: true,
                     color: AdminTheme.red,
                     barWidth: 3,
                     dotData: FlDotData(
-                      show: true,
-                      getDotPainter: (s, _, __, ___) => FlDotCirclePainter(
+                      show: days <= 7,
+                      getDotPainter: (s, _, _, _) => FlDotCirclePainter(
                           radius: 4,
                           color: Colors.white,
                           strokeWidth: 2,
@@ -449,7 +608,120 @@ class _StatsTabState extends State<StatsTab> {
 }
 
 // ══════════════════════════════════════════════
-// KPI CARD : compteur animé + hover + badge tendance
+// Donnée de tendance (réelle) affichée dans une KPI card
+// ══════════════════════════════════════════════
+class _Trend {
+  final String text;
+  final IconData? icon; // null = pastille neutre (part/ratio)
+  final Color color;
+  const _Trend(this.text, this.icon, this.color);
+}
+
+// ══════════════════════════════════════════════
+// Sélecteur de période 7j / 30j
+// ══════════════════════════════════════════════
+class _PeriodToggle extends StatelessWidget {
+  final int value;
+  final ValueChanged<int> onChanged;
+  const _PeriodToggle({required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: AdminTheme.bg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AdminTheme.border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final p in const [7, 30]) _seg(p),
+        ],
+      ),
+    );
+  }
+
+  Widget _seg(int p) {
+    final active = value == p;
+    return GestureDetector(
+      onTap: () => onChanged(p),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: active ? AdminTheme.navy : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text('${p}j',
+            style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: active ? Colors.white : AdminTheme.textMuted)),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════
+// Bouton rafraîchir (icône qui tourne pendant le chargement)
+// ══════════════════════════════════════════════
+class _RefreshButton extends StatefulWidget {
+  final bool spinning;
+  final VoidCallback onTap;
+  const _RefreshButton({required this.spinning, required this.onTap});
+
+  @override
+  State<_RefreshButton> createState() => _RefreshButtonState();
+}
+
+class _RefreshButtonState extends State<_RefreshButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c =
+      AnimationController(vsync: this, duration: const Duration(seconds: 1));
+
+  @override
+  void didUpdateWidget(_RefreshButton old) {
+    super.didUpdateWidget(old);
+    if (widget.spinning && !_c.isAnimating) {
+      _c.repeat();
+    } else if (!widget.spinning && _c.isAnimating) {
+      _c.stop();
+      _c.value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: widget.onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.all(9),
+        decoration: BoxDecoration(
+          color: AdminTheme.card,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AdminTheme.border),
+        ),
+        child: RotationTransition(
+          turns: _c,
+          child: Icon(Icons.refresh_rounded,
+              size: 18, color: AdminTheme.textSecondary),
+        ),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════
+// KPI CARD : compteur animé + hover + pastille (tendance réelle / ratio)
 // ══════════════════════════════════════════════
 class _KpiCard extends StatefulWidget {
   final String label;
@@ -457,12 +729,11 @@ class _KpiCard extends StatefulWidget {
   final IconData icon;
   final Color color;
   final String subtitle;
-  final String trend;
-  final bool trendUp;
   final String suffix;
-  const _KpiCard(this.label, this.value, this.icon, this.color, this.subtitle,
-      this.trend, this.trendUp,
-      {this.suffix = ''});
+  final _Trend? trend;
+  const _KpiCard(
+      this.label, this.value, this.icon, this.color, this.subtitle,
+      {this.suffix = '', this.trend});
 
   @override
   State<_KpiCard> createState() => _KpiCardState();
@@ -473,6 +744,7 @@ class _KpiCardState extends State<_KpiCard> {
 
   @override
   Widget build(BuildContext context) {
+    final trend = widget.trend;
     return Expanded(
       child: MouseRegion(
         onEnter: (_) => setState(() => _hover = true),
@@ -492,8 +764,7 @@ class _KpiCardState extends State<_KpiCard> {
                     : AdminTheme.border),
             boxShadow: [
               BoxShadow(
-                color: widget.color
-                    .withValues(alpha: _hover ? 0.22 : 0.05),
+                color: widget.color.withValues(alpha: _hover ? 0.22 : 0.05),
                 blurRadius: _hover ? 28 : 16,
                 offset: Offset(0, _hover ? 12 : 6),
               ),
@@ -522,38 +793,29 @@ class _KpiCardState extends State<_KpiCard> {
                     child: Icon(widget.icon, color: Colors.white, size: 22),
                   ),
                   const Spacer(),
-                  // Badge tendance
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: (widget.trendUp
-                              ? AdminTheme.green
-                              : AdminTheme.red)
-                          .withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(8),
+                  // Pastille (tendance réelle ou ratio) — masquée si null
+                  if (trend != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: trend.color.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          if (trend.icon != null) ...[
+                            Icon(trend.icon, size: 12, color: trend.color),
+                            const SizedBox(width: 2),
+                          ],
+                          Text(trend.text,
+                              style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: trend.color)),
+                        ],
+                      ),
                     ),
-                    child: Row(
-                      children: [
-                        Icon(
-                            widget.trendUp
-                                ? Icons.arrow_upward_rounded
-                                : Icons.arrow_downward_rounded,
-                            size: 12,
-                            color: widget.trendUp
-                                ? AdminTheme.green
-                                : AdminTheme.red),
-                        const SizedBox(width: 2),
-                        Text(widget.trend,
-                            style: GoogleFonts.inter(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: widget.trendUp
-                                    ? AdminTheme.green
-                                    : AdminTheme.red)),
-                      ],
-                    ),
-                  ),
                 ],
               ),
               const SizedBox(height: 18),
@@ -562,7 +824,7 @@ class _KpiCardState extends State<_KpiCard> {
                 tween: Tween(begin: 0, end: widget.value.toDouble()),
                 duration: const Duration(milliseconds: 1000),
                 curve: Curves.easeOutCubic,
-                builder: (_, v, __) => Text(
+                builder: (_, v, _) => Text(
                   '${v.toInt()}${widget.suffix}',
                   style: GoogleFonts.inter(
                       fontSize: 32,
@@ -601,8 +863,7 @@ class _PulseDotState extends State<_PulseDot>
   @override
   void initState() {
     super.initState();
-    _c = AnimationController(
-        vsync: this, duration: const Duration(seconds: 1))
+    _c = AnimationController(vsync: this, duration: const Duration(seconds: 1))
       ..repeat(reverse: true);
   }
 
@@ -616,7 +877,7 @@ class _PulseDotState extends State<_PulseDot>
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _c,
-      builder: (_, __) => Container(
+      builder: (_, _) => Container(
         width: 9,
         height: 9,
         decoration: BoxDecoration(
