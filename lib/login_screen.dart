@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'theme.dart';
-import 'tui_smile.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});

@@ -395,7 +395,7 @@ class _FlightDetailPanelState extends State<FlightDetailPanel> {
                         padding:
                             const EdgeInsets.fromLTRB(16, 4, 16, 24),
                         itemCount: _passengers.length,
-                        separatorBuilder: (_, __) =>
+                        separatorBuilder: (_, _) =>
                             const SizedBox(height: 8),
                         itemBuilder: (_, i) => _paxTile(_passengers[i]),
                       ),

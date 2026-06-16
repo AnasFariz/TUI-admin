@@ -476,11 +476,11 @@ class _FlightsTabState extends State<FlightsTab> {
       barrierLabel: 'Détails',
       barrierColor: Colors.black.withValues(alpha: 0.4),
       transitionDuration: const Duration(milliseconds: 220),
-      pageBuilder: (_, __, ___) => Align(
+      pageBuilder: (_, _, _) => Align(
         alignment: Alignment.centerRight,
         child: FlightDetailPanel(flight: flight, onChanged: _load),
       ),
-      transitionBuilder: (_, anim, __, child) {
+      transitionBuilder: (_, anim, _, child) {
         final offset = Tween<Offset>(
                 begin: const Offset(1, 0), end: Offset.zero)
             .animate(CurvedAnimation(parent: anim, curve: Curves.easeOut));

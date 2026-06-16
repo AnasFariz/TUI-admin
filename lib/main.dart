@@ -25,7 +25,7 @@ class TuiAdminApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<bool>(
       valueListenable: isDarkMode,
-      builder: (_, dark, ___) {
+      builder: (_, dark, _) {
         return MaterialApp(
           title: 'TUI Admin',
           debugShowCheckedModeBanner: false,
