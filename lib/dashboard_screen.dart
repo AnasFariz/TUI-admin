@@ -5,7 +5,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'theme.dart';
 import 'tabs/stats_tab.dart';
 import 'tabs/flights_tab.dart';
-import 'tabs/reservations_tab.dart';
 import 'tabs/claims_tab.dart';
 import 'tabs/notifications_tab.dart';
 import 'tabs/hotels_tab.dart';
@@ -26,7 +25,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final _titles = [
     'Tableau de bord',
     'Gestion des vols',
-    'Réservations',
     'Demandes de compensation',
     'Notifications',
     'Réseau hôtelier',
@@ -35,7 +33,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final _pages = const [
     StatsTab(),
     FlightsTab(),
-    ReservationsTab(),
     ClaimsTab(),
     NotificationsTab(),
     HotelsTab(),
@@ -132,7 +129,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _onNewClaim() {
     if (!mounted) return;
-    if (_index == 3) return; // déjà sur l'onglet Compensations
+    if (_index == 2) return; // déjà sur l'onglet Compensations
     setState(() => _newClaims++);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -244,12 +241,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     _navItem(0, Icons.dashboard_rounded, 'Tableau de bord'),
                     _navItem(1, Icons.flight_rounded, 'Vols'),
-                    _navItem(2, Icons.confirmation_number_rounded,
-                        'Réservations'),
-                    _navItem(3, Icons.payments_rounded, 'Compensations',
+                    _navItem(2, Icons.payments_rounded, 'Compensations',
                         badge: _newClaims),
-                    _navItem(4, Icons.notifications_rounded, 'Notifications'),
-                    _navItem(5, Icons.hotel_rounded, 'Hôtels'),
+                    _navItem(3, Icons.notifications_rounded, 'Notifications'),
+                    _navItem(4, Icons.hotel_rounded, 'Hôtels'),
                     const Spacer(),
                     // ── Carte profil admin ──
                     Padding(
@@ -381,7 +376,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       badge: badge,
       onTap: () => setState(() {
         _index = i;
-        if (i == 3) _newClaims = 0; // reset compteur en ouvrant Compensations
+        if (i == 2) _newClaims = 0; // reset compteur en ouvrant Compensations
       }),
     );
   }
