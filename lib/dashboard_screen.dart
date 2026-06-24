@@ -8,6 +8,7 @@ import 'tabs/flights_tab.dart';
 import 'tabs/reservations_tab.dart';
 import 'tabs/claims_tab.dart';
 import 'tabs/notifications_tab.dart';
+import 'tabs/hotels_tab.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -28,6 +29,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     'Réservations',
     'Demandes de compensation',
     'Notifications',
+    'Réseau hôtelier',
   ];
 
   final _pages = const [
@@ -36,6 +38,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ReservationsTab(),
     ClaimsTab(),
     NotificationsTab(),
+    HotelsTab(),
   ];
 
   String _adminName = 'Anas Fariz';
@@ -246,6 +249,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     _navItem(3, Icons.payments_rounded, 'Compensations',
                         badge: _newClaims),
                     _navItem(4, Icons.notifications_rounded, 'Notifications'),
+                    _navItem(5, Icons.hotel_rounded, 'Hôtels'),
                     const Spacer(),
                     // ── Carte profil admin ──
                     Padding(
