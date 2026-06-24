@@ -26,6 +26,7 @@ class _FlightFormDialogState extends State<FlightFormDialog> {
   late final TextEditingController _arrTime;
   late final TextEditingController _gate;
   late final TextEditingController _distance;
+  late final TextEditingController _delay;
   String _status = 'on_time';
   bool _saving = false;
 
@@ -48,14 +49,28 @@ class _FlightFormDialogState extends State<FlightFormDialog> {
     _gate = TextEditingController(text: f?['gate']?.toString() ?? '');
     _distance =
         TextEditingController(text: f?['distance_km']?.toString() ?? '');
+    final d = (f?['delay_minutes'] ?? 0).toString();
+    _delay = TextEditingController(text: d == '0' ? '' : d);
     _status = (f?['status'] ?? 'on_time').toString();
+  }
+
+  /// Normalise une heure saisie (« 8/30 », « 8h30 », « 830 ») en « 08:30 ».
+  String _normTime(String s) {
+    final digits = s.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length >= 3) {
+      final mm = digits.substring(digits.length - 2);
+      final hh = digits.substring(0, digits.length - 2).padLeft(2, '0');
+      return '$hh:$mm';
+    }
+    if (digits.isNotEmpty) return '${digits.padLeft(2, '0')}:00';
+    return s;
   }
 
   @override
   void dispose() {
     for (final c in [
       _number, _date, _depCode, _depCity, _arrCode, _arrCity,
-      _depTime, _arrTime, _gate, _distance,
+      _depTime, _arrTime, _gate, _distance, _delay,
     ]) {
       c.dispose();
     }
@@ -65,6 +80,8 @@ class _FlightFormDialogState extends State<FlightFormDialog> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
+    final delay =
+        _status == 'delayed' ? (int.tryParse(_delay.text.trim()) ?? 0) : 0;
     final payload = {
       'flight_number': _number.text.trim().toUpperCase(),
       'flight_date': _date.text.trim(),
@@ -72,11 +89,17 @@ class _FlightFormDialogState extends State<FlightFormDialog> {
       'departure_city': _depCity.text.trim(),
       'arrival_code': _arrCode.text.trim().toUpperCase(),
       'arrival_city': _arrCity.text.trim(),
-      'scheduled_departure': _depTime.text.trim(),
-      'scheduled_arrival': _arrTime.text.trim(),
+      'scheduled_departure': _normTime(_depTime.text.trim()),
+      'scheduled_arrival': _normTime(_arrTime.text.trim()),
       'gate': _gate.text.trim().isEmpty ? null : _gate.text.trim(),
       'distance_km': int.tryParse(_distance.text.trim()),
       'status': _status,
+      'delay_minutes': delay,
+      'delay_reason': _status == 'delayed'
+          ? 'Retard opérationnel'
+          : _status == 'cancelled'
+              ? 'Vol annulé par la compagnie'
+              : null,
     };
     try {
       if (_isEdit) {
@@ -183,6 +206,17 @@ class _FlightFormDialogState extends State<FlightFormDialog> {
                     _statusChip('delayed', 'Retardé', AdminTheme.orange),
                     _statusChip('cancelled', 'Annulé', AdminTheme.red),
                   ]),
+                  if (_status == 'delayed') ...[
+                    const SizedBox(height: 14),
+                    _field(_delay, 'Retard (minutes) — ≥ 180 pour EU261', '240',
+                        required: false),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Astuce : 180 min ou plus = éligible à l\'indemnisation EU261.',
+                      style: GoogleFonts.inter(
+                          fontSize: 11, color: AdminTheme.textMuted),
+                    ),
+                  ],
                   const SizedBox(height: 24),
                   Row(children: [
                     Expanded(
