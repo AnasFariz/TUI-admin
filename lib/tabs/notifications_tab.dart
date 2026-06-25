@@ -111,12 +111,29 @@ class _NotificationsTabState extends State<NotificationsTab> {
           .toList();
       await _sb.from('notifications').insert(rows);
 
+      // Envoi de l'email aux passagers (en plus de la notif in-app)
+      var emailNote = '';
+      try {
+        final emailRes =
+            await _sb.functions.invoke('send-message-email', body: {
+          'flightId': _selectedFlightId,
+          'title': _title.text.trim(),
+          'body': _body.text.trim(),
+          'type': _type,
+        });
+        final sent =
+            (emailRes.data is Map) ? (emailRes.data['sent'] ?? 0) : 0;
+        emailNote = ' $sent email(s) envoyé(s).';
+      } catch (_) {
+        emailNote = ' (email non envoyé)';
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             behavior: SnackBarBehavior.floating,
             content: Text(
-                'Notification envoyée à ${userIds.length} passager(s) !'),
+                'Notification envoyée à ${userIds.length} passager(s) !$emailNote'),
             backgroundColor: AdminTheme.green,
           ),
         );
