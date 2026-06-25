@@ -121,12 +121,26 @@ class _FlightsTabState extends State<FlightsTab> {
                 ? 'Vol annulé par la compagnie'
                 : null,
       }).eq('id', flight['id']);
+
+      // Vol perturbé → envoi d'un email à tous les passagers concernés
+      var emailNote = '';
+      if (status == 'delayed' || status == 'cancelled') {
+        try {
+          final res = await _sb.functions.invoke('send-flight-alert',
+              body: {'flightId': flight['id']});
+          final sent = (res.data is Map) ? (res.data['sent'] ?? 0) : 0;
+          emailNote = ' $sent email(s) envoyé(s).';
+        } catch (_) {
+          emailNote = ' (email non envoyé)';
+        }
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             behavior: SnackBarBehavior.floating,
             content: Text(
-                'Vol ${flight['flight_number']} mis à jour. Notifications envoyées aux passagers.'),
+                'Vol ${flight['flight_number']} mis à jour. Notifications envoyées.$emailNote'),
             backgroundColor: AdminTheme.green,
           ),
         );
