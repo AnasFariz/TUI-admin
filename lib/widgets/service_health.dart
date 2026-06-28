@@ -178,7 +178,7 @@ class _ServiceHealthSectionState extends State<ServiceHealthSection>
 
   // ── API Vols : fraîcheur de la dernière synchro (table flights) ──
   // Indicateur indirect : si les vols ont été mis à jour récemment, le
-  // pipeline AviationStack → synchro fonctionne. Aucun effet de bord.
+  // pipeline AeroDataBox → synchro fonctionne. Aucun effet de bord.
   Future<void> _checkFlights() async {
     try {
       final rows = await _sb

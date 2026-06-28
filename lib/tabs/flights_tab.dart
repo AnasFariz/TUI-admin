@@ -4,7 +4,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme.dart';
 import '../export_service.dart';
 import '../widgets/export_button.dart';
-import '../widgets/flight_form_dialog.dart';
 import '../widgets/flight_detail_panel.dart';
 
 class FlightsTab extends StatefulWidget {
@@ -261,8 +260,6 @@ class _FlightsTabState extends State<FlightsTab> {
                 ],
               ),
               const Spacer(),
-              _addFlightBtn(),
-              const SizedBox(width: 10),
               ExportButton(onCsv: _exportCsv, onPdf: _exportPdf),
               const SizedBox(width: 10),
               _refreshBtn(),
@@ -475,14 +472,6 @@ class _FlightsTabState extends State<FlightsTab> {
     );
   }
 
-  Future<void> _openAddDialog() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => const FlightFormDialog(),
-    );
-    if (ok == true) _load();
-  }
-
   void _openDetail(Map<String, dynamic> flight) {
     showGeneralDialog(
       context: context,
@@ -502,38 +491,6 @@ class _FlightsTabState extends State<FlightsTab> {
       },
     );
   }
-
-  Widget _addFlightBtn() => InkWell(
-        onTap: _openAddDialog,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [AdminTheme.red, Color(0xFFFF3A4D)],
-            ),
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: AdminTheme.red.withValues(alpha: 0.3),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.add_rounded, size: 18, color: Colors.white),
-              const SizedBox(width: 6),
-              Text('Ajouter un vol',
-                  style: GoogleFonts.inter(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white)),
-            ],
-          ),
-        ),
-      );
 
   Widget _refreshBtn() => InkWell(
         onTap: _load,
