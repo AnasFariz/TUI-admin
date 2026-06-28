@@ -818,7 +818,7 @@ class _FlightCardState extends State<_FlightCard> {
                           () => widget.onStatus(f, 'on_time', 0)),
                       const SizedBox(width: 6),
                       _actionBtn('Retard', AdminTheme.orange,
-                          () => widget.onStatus(f, 'delayed', 120)),
+                          () => _askDelay(context)),
                       const SizedBox(width: 6),
                       _actionBtn('Annuler', AdminTheme.red,
                           () => widget.onStatus(f, 'cancelled', 0)),
@@ -832,6 +832,21 @@ class _FlightCardState extends State<_FlightCard> {
       ),
       ),
     );
+  }
+
+  Future<void> _askDelay(BuildContext context) async {
+    final current =
+        (widget.flight['delay_minutes'] as num?)?.toInt() ?? 0;
+    final minutes = await showDialog<int>(
+      context: context,
+      builder: (_) => _DelayPickerDialog(
+        flightNumber: widget.flight['flight_number']?.toString() ?? '',
+        initialMinutes: current > 0 ? current : 120,
+      ),
+    );
+    if (minutes != null && minutes > 0) {
+      await widget.onStatus(widget.flight, 'delayed', minutes);
+    }
   }
 
   Widget _actionBtn(String label, Color color, VoidCallback onTap) {
@@ -848,6 +863,285 @@ class _FlightCardState extends State<_FlightCard> {
         child: Text(label,
             style: GoogleFonts.inter(
                 fontSize: 12, fontWeight: FontWeight.w700, color: color)),
+      ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────
+// DIALOGUE : CHOIX DE LA DURÉE DE RETARD
+// ──────────────────────────────────────────
+class _DelayPickerDialog extends StatefulWidget {
+  final String flightNumber;
+  final int initialMinutes;
+  const _DelayPickerDialog(
+      {required this.flightNumber, required this.initialMinutes});
+
+  @override
+  State<_DelayPickerDialog> createState() => _DelayPickerDialogState();
+}
+
+class _DelayPickerDialogState extends State<_DelayPickerDialog> {
+  late int _hours;
+  late int _minutes;
+
+  @override
+  void initState() {
+    super.initState();
+    _hours = widget.initialMinutes ~/ 60;
+    _minutes = widget.initialMinutes % 60;
+  }
+
+  int get _total => _hours * 60 + _minutes;
+  bool get _eligible => _total >= 180; // EU261 : ≥ 3h
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: AdminTheme.card,
+      shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 440),
+        child: Padding(
+          padding: const EdgeInsets.all(26),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: AdminTheme.orange.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(Icons.schedule_rounded,
+                        color: AdminTheme.orange, size: 22),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Retard du vol ${widget.flightNumber}',
+                            style: GoogleFonts.inter(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                color: AdminTheme.textPrimary)),
+                        Text('De combien le vol est-il retardé ?',
+                            style: AdminTheme.muted),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 22),
+
+              // Raccourcis fréquents
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _preset('1h', 60),
+                  _preset('1h30', 90),
+                  _preset('2h', 120),
+                  _preset('3h', 180),
+                  _preset('4h', 240),
+                  _preset('6h', 360),
+                ],
+              ),
+              const SizedBox(height: 22),
+
+              // Steppers heures / minutes
+              Row(
+                children: [
+                  Expanded(
+                    child: _counter(
+                      label: 'Heures',
+                      value: _hours,
+                      onMinus: _hours > 0
+                          ? () => setState(() => _hours--)
+                          : null,
+                      onPlus: _hours < 24
+                          ? () => setState(() => _hours++)
+                          : null,
+                      display: '$_hours h',
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: _counter(
+                      label: 'Minutes',
+                      value: _minutes,
+                      onMinus: () =>
+                          setState(() => _minutes = (_minutes - 15 + 60) % 60),
+                      onPlus: () =>
+                          setState(() => _minutes = (_minutes + 15) % 60),
+                      display: '$_minutes min',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // Indicateur EU261
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: (_eligible ? AdminTheme.green : AdminTheme.textMuted)
+                      .withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                      color: (_eligible
+                              ? AdminTheme.green
+                              : AdminTheme.textMuted)
+                          .withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                        _eligible
+                            ? Icons.verified_rounded
+                            : Icons.info_outline_rounded,
+                        size: 18,
+                        color: _eligible
+                            ? AdminTheme.green
+                            : AdminTheme.textMuted),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        _eligible
+                            ? 'Retard ≥ 3h → les passagers seront éligibles à une indemnisation EU261.'
+                            : 'Retard < 3h → pas d\'indemnisation EU261 (hébergement possible dès 2h).',
+                        style: GoogleFonts.inter(
+                            fontSize: 12,
+                            height: 1.4,
+                            fontWeight: FontWeight.w600,
+                            color: AdminTheme.textSecondary),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text('Annuler',
+                        style: GoogleFonts.inter(
+                            fontWeight: FontWeight.w700,
+                            color: AdminTheme.textSecondary)),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: _total > 0
+                        ? () => Navigator.pop(context, _total)
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AdminTheme.orange,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 14),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      elevation: 0,
+                    ),
+                    child: Text('Confirmer le retard',
+                        style: GoogleFonts.inter(fontWeight: FontWeight.w800)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _preset(String label, int minutes) {
+    final active = _total == minutes;
+    return InkWell(
+      onTap: () => setState(() {
+        _hours = minutes ~/ 60;
+        _minutes = minutes % 60;
+      }),
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+        decoration: BoxDecoration(
+          color: active ? AdminTheme.orange : AdminTheme.bg,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+              color: active ? AdminTheme.orange : AdminTheme.border),
+        ),
+        child: Text(label,
+            style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: active ? Colors.white : AdminTheme.textSecondary)),
+      ),
+    );
+  }
+
+  Widget _counter({
+    required String label,
+    required int value,
+    required VoidCallback? onMinus,
+    required VoidCallback? onPlus,
+    required String display,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: AdminTheme.muted),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: AdminTheme.bg,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AdminTheme.border),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _stepBtn(Icons.remove_rounded, onMinus),
+              Text(display,
+                  style: GoogleFonts.inter(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: AdminTheme.textPrimary)),
+              _stepBtn(Icons.add_rounded, onPlus),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _stepBtn(IconData icon, VoidCallback? onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: onTap == null
+              ? AdminTheme.border.withValues(alpha: 0.3)
+              : AdminTheme.navy.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon,
+            size: 18,
+            color: onTap == null ? AdminTheme.textMuted : AdminTheme.navy),
       ),
     );
   }
