@@ -6,7 +6,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme.dart';
-import '../widgets/service_health.dart';
 
 class StatsTab extends StatefulWidget {
   const StatsTab({super.key});
@@ -238,10 +237,6 @@ class _StatsTabState extends State<StatsTab> {
             ],
           ),
           const SizedBox(height: 24),
-
-          // ── État des services (santé API en direct) ──
-          const ServiceHealthSection(),
-          const SizedBox(height: 28),
 
           // ── KPI cards (animés + hover + tendance RÉELLE) ──
           Row(
