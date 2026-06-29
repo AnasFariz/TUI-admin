@@ -121,11 +121,18 @@ class _NotificationsTabState extends State<NotificationsTab> {
           'body': _body.text.trim(),
           'type': _type,
         });
-        final sent =
-            (emailRes.data is Map) ? (emailRes.data['sent'] ?? 0) : 0;
+        final data = emailRes.data is Map ? emailRes.data as Map : {};
+        final sent = (data['sent'] ?? 0) as int;
+        final failed = (data['failed'] ?? 0) as int;
         emailNote = ' $sent email(s) envoyé(s).';
+        if (failed > 0) {
+          final errs = (data['errors'] as List?) ?? [];
+          final reason = errs.isNotEmpty ? errs.first.toString() : '';
+          emailNote += ' $failed échec(s).'
+              '${reason.isNotEmpty ? ' Cause : $reason' : ''}';
+        }
       } catch (_) {
-        emailNote = ' (email non envoyé)';
+        emailNote = ' (email non envoyé : fonction non déployée ?)';
       }
 
       if (mounted) {
