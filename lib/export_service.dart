@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:js_interop';
 import 'package:web/web.dart' as web;
@@ -6,7 +5,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:intl/intl.dart';
 
-/// Service d'export CSV / PDF pour le dashboard admin TUI.
+/// Service d'export PDF pour le dashboard admin TUI.
 class ExportService {
   static const _navy = PdfColor.fromInt(0xFF0F1F4D);
   static const _red = PdfColor.fromInt(0xFFE2001A);
@@ -28,29 +27,6 @@ class ExportService {
     anchor.click();
     anchor.remove();
     web.URL.revokeObjectURL(url);
-  }
-
-  // ──────────────────────────────────────────
-  // CSV
-  // ──────────────────────────────────────────
-  static void downloadCsv(
-      String filename, List<String> headers, List<List<String>> rows) {
-    final buffer = StringBuffer();
-    buffer.writeln(headers.map(_escape).join(','));
-    for (final r in rows) {
-      buffer.writeln(r.map(_escape).join(','));
-    }
-    // BOM UTF-8 pour Excel
-    final content = '﻿${buffer.toString()}';
-    _download(filename, Uint8List.fromList(utf8.encode(content)),
-        'text/csv;charset=utf-8');
-  }
-
-  static String _escape(String v) {
-    if (v.contains(',') || v.contains('"') || v.contains('\n')) {
-      return '"${v.replaceAll('"', '""')}"';
-    }
-    return v;
   }
 
   // ──────────────────────────────────────────

@@ -249,11 +249,6 @@ class _ClaimsTabState extends State<ClaimsTab> {
     'Date',
   ];
 
-  void _exportCsv() {
-    ExportService.downloadCsv(
-        'compensations_tui.csv', _exportHeaders, _exportRows());
-  }
-
   Future<void> _exportPdf() async {
     final list = _filtered;
     final pending =
@@ -358,7 +353,7 @@ class _ClaimsTabState extends State<ClaimsTab> {
                 ],
               ),
               const Spacer(),
-              ExportButton(onCsv: _exportCsv, onPdf: _exportPdf),
+              ExportButton(onPdf: _exportPdf),
               const SizedBox(width: 10),
               _refreshBtn(),
             ],

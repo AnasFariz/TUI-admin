@@ -203,10 +203,6 @@ class _FlightsTabState extends State<FlightsTab> {
     'Retard'
   ];
 
-  void _exportCsv() {
-    ExportService.downloadCsv('vols_tui.csv', _exportHeaders, _exportRows());
-  }
-
   Future<void> _exportPdf() async {
     final list = _filtered;
     final onTime = list
@@ -260,7 +256,7 @@ class _FlightsTabState extends State<FlightsTab> {
                 ],
               ),
               const Spacer(),
-              ExportButton(onCsv: _exportCsv, onPdf: _exportPdf),
+              ExportButton(onPdf: _exportPdf),
               const SizedBox(width: 10),
               _refreshBtn(),
             ],
