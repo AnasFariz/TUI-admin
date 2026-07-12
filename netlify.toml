@@ -1,0 +1,24 @@
+# ═══════════════════════════════════════════════════════════
+# Configuration Netlify — Build automatique Flutter Web (Admin)
+# Chaque push GitHub déclenche un build + déploiement
+# ═══════════════════════════════════════════════════════════
+
+[build]
+  # Dossier publié après le build (relatif au "Base directory" = ADMIN/tui_admin
+  # configuré côté Netlify pour ce site)
+  publish = "build/web"
+
+  # Commande : installe Flutter puis build le web
+  command = """
+    git clone https://github.com/flutter/flutter.git -b stable --depth 1 _flutter
+    export PATH="$PATH:`pwd`/_flutter/bin"
+    flutter config --no-analytics
+    flutter pub get
+    flutter build web --release
+  """
+
+# Redirection SPA — toutes les routes vers index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
