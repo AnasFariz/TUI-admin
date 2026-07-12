@@ -5,9 +5,9 @@ import 'theme.dart';
 import 'login_screen.dart';
 import 'dashboard_screen.dart';
 
-// Même backend Supabase que l'app passager (instance auto-hébergée sur VPS)
-const supabaseUrl = 'http://138.197.191.121:8000';
-const supabaseKey = 'sb_publishable_tmLfCOpxbCLxj8zlIjhOdQ_7AZhUl1y';
+// Même backend Supabase que l'app passager
+const supabaseUrl = 'https://epcswjogpfpsdgizrpry.supabase.co';
+const supabaseKey = 'sb_publishable_C5ILIX6MoFROjAgY1MzIKg_TFo-Pvxg';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
