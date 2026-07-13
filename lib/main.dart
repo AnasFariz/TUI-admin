@@ -43,6 +43,23 @@ class TuiAdminApp extends StatelessWidget {
   }
 }
 
+// Vérifie que le compte connecté figure bien dans public.admins
+// (OWASP A01 - Broken Access Control) avant d'exposer le dashboard,
+// y compris quand une session persistée est restaurée sans repasser
+// par l'écran de connexion.
+Future<bool> _isAdmin(String uid) async {
+  try {
+    final row = await supabase
+        .from('admins')
+        .select('user_id')
+        .eq('user_id', uid)
+        .maybeSingle();
+    return row != null;
+  } catch (_) {
+    return false;
+  }
+}
+
 class _AuthGate extends StatelessWidget {
   const _AuthGate({super.key});
   @override
@@ -51,8 +68,21 @@ class _AuthGate extends StatelessWidget {
       stream: supabase.auth.onAuthStateChange,
       builder: (context, snapshot) {
         final session = supabase.auth.currentSession;
-        if (session != null) return const DashboardScreen();
-        return const LoginScreen();
+        if (session == null) return const LoginScreen();
+        return FutureBuilder<bool>(
+          key: ValueKey(session.user.id),
+          future: _isAdmin(session.user.id),
+          builder: (context, adminSnap) {
+            if (!adminSnap.hasData) {
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
+            }
+            if (adminSnap.data == true) return const DashboardScreen();
+            supabase.auth.signOut();
+            return const LoginScreen();
+          },
+        );
       },
     );
   }

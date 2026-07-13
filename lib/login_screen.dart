@@ -29,10 +29,26 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
     });
     try {
-      await Supabase.instance.client.auth.signInWithPassword(
+      final client = Supabase.instance.client;
+      await client.auth.signInWithPassword(
         email: _email.text.trim(),
         password: _password.text,
       );
+      // Contrôle d'accès (OWASP A01 - Broken Access Control) : seuls les
+      // comptes listés dans public.admins peuvent utiliser cette console.
+      final uid = client.auth.currentUser?.id;
+      final isAdmin = uid != null &&
+          await client
+                  .from('admins')
+                  .select('user_id')
+                  .eq('user_id', uid)
+                  .maybeSingle() !=
+              null;
+      if (!isAdmin) {
+        await client.auth.signOut();
+        setState(() => _error =
+            'Accès refusé : ce compte n\'est pas autorisé pour la console admin.');
+      }
     } on AuthException catch (e) {
       setState(() => _error = e.message);
     } catch (_) {
