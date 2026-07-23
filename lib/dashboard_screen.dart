@@ -353,11 +353,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ],
                   ),
                 ),
-                // Page
+                // Page — fond animé subtil + transition douce entre onglets
                 Expanded(
                   child: Container(
                     color: AdminTheme.bg,
-                    child: _pages[_index],
+                    child: Stack(
+                      children: [
+                        const Positioned.fill(child: _DashboardBackground()),
+                        Positioned.fill(
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 350),
+                            switchInCurve: Curves.easeOutCubic,
+                            switchOutCurve: Curves.easeIn,
+                            transitionBuilder: (child, animation) {
+                              return FadeTransition(
+                                opacity: animation,
+                                child: SlideTransition(
+                                  position: Tween<Offset>(
+                                    begin: const Offset(0.035, 0),
+                                    end: Offset.zero,
+                                  ).animate(animation),
+                                  child: child,
+                                ),
+                              );
+                            },
+                            child: KeyedSubtree(
+                              key: ValueKey(_index),
+                              child: _pages[_index],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -607,4 +634,62 @@ class _ThemeSwitch extends StatelessWidget {
       ),
     );
   }
+}
+
+// ──────────────────────────────────────────
+// FOND ANIMÉ SUBTIL de la zone de contenu :
+// deux orbes floutés qui dérivent lentement, très discrets, pour donner
+// de la profondeur sans gêner la lecture des cartes.
+// ──────────────────────────────────────────
+class _DashboardBackground extends StatefulWidget {
+  const _DashboardBackground();
+  @override
+  State<_DashboardBackground> createState() => _DashboardBackgroundState();
+}
+
+class _DashboardBackgroundState extends State<_DashboardBackground>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+      vsync: this, duration: const Duration(seconds: 18))
+    ..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, _) {
+        final t = Curves.easeInOut.transform(_c.value);
+        return Stack(
+          children: [
+            Positioned(
+              top: -120 + t * 40,
+              right: -80 - t * 30,
+              child: _orb(360, AdminTheme.navy.withValues(alpha: 0.05)),
+            ),
+            Positioned(
+              bottom: -140 - t * 30,
+              left: -100 + t * 50,
+              child: _orb(420, AdminTheme.red.withValues(alpha: 0.04)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _orb(double size, Color color) => Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+              colors: [color, color.withValues(alpha: 0)]),
+        ),
+      );
 }

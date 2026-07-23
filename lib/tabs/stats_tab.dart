@@ -238,24 +238,24 @@ class _StatsTabState extends State<StatsTab> {
           ),
           const SizedBox(height: 24),
 
-          // ── KPI cards (animés + hover + tendance RÉELLE) ──
+          // ── KPI cards (apparition en cascade + count-up + hover) ──
           Row(
             children: [
               _KpiCard('Vols totaux', _totalFlights, Icons.flight_rounded,
                   AdminTheme.navy, 'Tous les vols',
-                  trend: _wowTrend(_flightDates)),
+                  index: 0, trend: _wowTrend(_flightDates)),
               const SizedBox(width: 18),
               _KpiCard('À l\'heure', _onTime, Icons.check_circle_rounded,
                   AdminTheme.green, 'Ponctualité',
-                  trend: _flat('$punctuality%')),
+                  index: 1, trend: _flat('$punctuality%')),
               const SizedBox(width: 18),
               _KpiCard('Perturbés', disrupted, Icons.warning_amber_rounded,
                   AdminTheme.orange, 'Retards + annulations',
-                  trend: _flat('$disruptRate% du total')),
+                  index: 2, trend: _flat('$disruptRate% du total')),
               const SizedBox(width: 18),
               _KpiCard('Taux perturbation', disruptRate,
                   Icons.trending_up_rounded, AdminTheme.red, 'Sur le total',
-                  suffix: '%'),
+                  index: 3, suffix: '%'),
             ],
           ),
           const SizedBox(height: 18),
@@ -264,11 +264,11 @@ class _StatsTabState extends State<StatsTab> {
               _KpiCard('Réservations', _reservations,
                   Icons.confirmation_number_rounded, AdminTheme.navyLight,
                   'Passagers',
-                  trend: _wowTrend(_reservationDates)),
+                  index: 4, trend: _wowTrend(_reservationDates)),
               const SizedBox(width: 18),
               _KpiCard('Compensations', _claims, Icons.payments_rounded,
                   AdminTheme.orange, 'Demandes EU261',
-                  trend: _wowTrend(_claimDates, goodWhenUp: false)),
+                  index: 5, trend: _wowTrend(_claimDates, goodWhenUp: false)),
               const SizedBox(width: 18),
               const Expanded(child: SizedBox()),
               const SizedBox(width: 18),
@@ -726,22 +726,52 @@ class _KpiCard extends StatefulWidget {
   final String subtitle;
   final String suffix;
   final _Trend? trend;
+  final int index;
   const _KpiCard(
       this.label, this.value, this.icon, this.color, this.subtitle,
-      {this.suffix = '', this.trend});
+      {this.suffix = '', this.trend, this.index = 0});
 
   @override
   State<_KpiCard> createState() => _KpiCardState();
 }
 
-class _KpiCardState extends State<_KpiCard> {
+class _KpiCardState extends State<_KpiCard>
+    with SingleTickerProviderStateMixin {
   bool _hover = false;
+
+  // Animation d'entrée en cascade (fondu + glissement vers le haut)
+  late final AnimationController _entrance = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 500));
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(Duration(milliseconds: widget.index * 90), () {
+      if (mounted) _entrance.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _entrance.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final trend = widget.trend;
     return Expanded(
-      child: MouseRegion(
+      child: AnimatedBuilder(
+        animation: _entrance,
+        builder: (_, child) {
+          final v = Curves.easeOutCubic.transform(_entrance.value);
+          return Opacity(
+            opacity: v,
+            child: Transform.translate(
+                offset: Offset(0, (1 - v) * 22), child: child),
+          );
+        },
+        child: MouseRegion(
         onEnter: (_) => setState(() => _hover = true),
         onExit: (_) => setState(() => _hover = false),
         cursor: SystemMouseCursors.click,
@@ -842,6 +872,7 @@ class _KpiCardState extends State<_KpiCard> {
           ),
         ),
       ),
+        ),
     );
   }
 }
