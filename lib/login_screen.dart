@@ -68,14 +68,28 @@ class _LoginScreenState extends State<LoginScreen> {
             flex: 5,
             child: Container(
               decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFF13265E), AdminTheme.navy, Color(0xFF050C1F)],
+                image: DecorationImage(
+                  image: AssetImage('assets/images/login_background.jpg'),
+                  fit: BoxFit.cover,
                 ),
               ),
               child: Stack(
                 children: [
+                  // Voile sombre pour garder le texte blanc lisible sur la photo
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            AdminTheme.navy.withValues(alpha: 0.82),
+                            const Color(0xFF050C1F).withValues(alpha: 0.88),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                   // Orbes décoratifs flous
                   Positioned(
                     top: -80,
