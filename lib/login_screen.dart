@@ -67,7 +67,9 @@ class _LoginScreenState extends State<LoginScreen> {
           // Photo plein écran, en arrière-plan de toute la page
           Positioned.fill(
             child: Image.asset('assets/images/login_background.jpg',
-                fit: BoxFit.cover),
+                fit: BoxFit.cover,
+                filterQuality: FilterQuality.high,
+                isAntiAlias: true),
           ),
           // Voile en dégradé : plus sombre à gauche (lisibilité du texte),
           // plus clair à droite pour laisser la photo bien visible.
@@ -154,19 +156,29 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(24),
                         child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                          filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
                           child: Container(
                             padding: const EdgeInsets.all(40),
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.88),
+                              // Verre dépoli sombre translucide : la photo reste
+                              // visible à travers la carte, le texte blanc reste net.
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Colors.white.withValues(alpha: 0.18),
+                                  Colors.white.withValues(alpha: 0.08),
+                                ],
+                              ),
                               borderRadius: BorderRadius.circular(24),
                               border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.5)),
+                                  color: Colors.white.withValues(alpha: 0.30),
+                                  width: 1.2),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.25),
-                                  blurRadius: 40,
-                                  offset: const Offset(0, 16),
+                                  color: Colors.black.withValues(alpha: 0.30),
+                                  blurRadius: 48,
+                                  offset: const Offset(0, 20),
                                 ),
                               ],
                             ),
@@ -178,8 +190,11 @@ class _LoginScreenState extends State<LoginScreen> {
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 12, vertical: 6),
                                   decoration: BoxDecoration(
-                                    color: AdminTheme.navy.withValues(alpha: 0.08),
+                                    color: Colors.white.withValues(alpha: 0.12),
                                     borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                        color:
+                                            Colors.white.withValues(alpha: 0.20)),
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
@@ -196,15 +211,23 @@ class _LoginScreenState extends State<LoginScreen> {
                                           style: GoogleFonts.inter(
                                               fontSize: 12,
                                               fontWeight: FontWeight.w600,
-                                              color: AdminTheme.navy)),
+                                              color: Colors.white)),
                                     ],
                                   ),
                                 ),
                                 const SizedBox(height: 24),
-                                Text('Bienvenue', style: AdminTheme.h1),
+                                Text('Bienvenue',
+                                    style: GoogleFonts.inter(
+                                        fontSize: 30,
+                                        fontWeight: FontWeight.w800,
+                                        color: Colors.white,
+                                        letterSpacing: -0.5)),
                                 const SizedBox(height: 8),
                                 Text('Connectez-vous à la console d\'administration',
-                                    style: AdminTheme.muted),
+                                    style: GoogleFonts.inter(
+                                        fontSize: 14,
+                                        color:
+                                            Colors.white.withValues(alpha: 0.70))),
                                 const SizedBox(height: 32),
                                 _field(_email, 'Email', Icons.mail_outline),
                                 const SizedBox(height: 14),
@@ -223,7 +246,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                   const SizedBox(height: 12),
                                   Text(_error!,
                                       style: GoogleFonts.inter(
-                                          fontSize: 13, color: AdminTheme.red)),
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: const Color(0xFFFF8A80))),
                                 ],
                                 const SizedBox(height: 24),
                                 SizedBox(
@@ -231,8 +256,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                   child: ElevatedButton(
                                     onPressed: _loading ? null : _login,
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: AdminTheme.navy,
-                                      foregroundColor: Colors.white,
+                                      backgroundColor: Colors.white,
+                                      foregroundColor: AdminTheme.navy,
                                       shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(12)),
                                       elevation: 0,
@@ -244,7 +269,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                             child: CircularProgressIndicator(
                                                 strokeWidth: 2,
                                                 valueColor: AlwaysStoppedAnimation(
-                                                    Colors.white)))
+                                                    AdminTheme.navy)))
                                         : Text('Se connecter',
                                             style: GoogleFonts.inter(
                                                 fontSize: 15,
@@ -306,23 +331,34 @@ class _LoginScreenState extends State<LoginScreen> {
     return TextField(
       controller: c,
       obscureText: obscure,
+      style: GoogleFonts.inter(color: Colors.white, fontSize: 15),
+      cursorColor: Colors.white,
       decoration: InputDecoration(
         hintText: hint,
-        prefixIcon: Icon(icon, size: 20, color: AdminTheme.textMuted),
-        suffixIcon: suffix,
+        hintStyle: GoogleFonts.inter(
+            color: Colors.white.withValues(alpha: 0.55), fontSize: 15),
+        prefixIcon:
+            Icon(icon, size: 20, color: Colors.white.withValues(alpha: 0.70)),
+        suffixIcon: suffix != null
+            ? IconTheme(
+                data: IconThemeData(
+                    color: Colors.white.withValues(alpha: 0.70)),
+                child: suffix)
+            : null,
         filled: true,
-        fillColor: AdminTheme.bg,
+        fillColor: Colors.white.withValues(alpha: 0.12),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AdminTheme.border),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.22)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AdminTheme.border),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.22)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AdminTheme.navy, width: 1.5),
+          borderSide: BorderSide(
+              color: Colors.white.withValues(alpha: 0.80), width: 1.5),
         ),
       ),
     );
