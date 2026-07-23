@@ -64,19 +64,15 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // Photo plein écran, en arrière-plan de toute la page.
-          // Léger flou : adoucit l'image et masque la résolution limitée.
+          // Photo plein écran haute résolution (4K), nette et bien visible.
           Positioned.fill(
-            child: ImageFiltered(
-              imageFilter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-              child: Image.asset('assets/images/login_background.jpg',
-                  fit: BoxFit.cover,
-                  filterQuality: FilterQuality.high,
-                  isAntiAlias: true),
-            ),
+            child: Image.asset('assets/images/login_background.jpg',
+                fit: BoxFit.cover,
+                filterQuality: FilterQuality.high,
+                isAntiAlias: true),
           ),
-          // Voile en dégradé : plus sombre à gauche (lisibilité du texte),
-          // plus clair à droite pour laisser la photo bien visible.
+          // Voile léger, concentré à gauche pour garder le texte blanc lisible
+          // sans masquer la photo (qui reste bien visible à droite et au centre).
           Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
@@ -84,11 +80,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
                   colors: [
-                    AdminTheme.navy.withValues(alpha: 0.78),
-                    AdminTheme.navy.withValues(alpha: 0.45),
-                    AdminTheme.navy.withValues(alpha: 0.18),
+                    AdminTheme.navy.withValues(alpha: 0.55),
+                    AdminTheme.navy.withValues(alpha: 0.20),
+                    Colors.transparent,
                   ],
-                  stops: const [0.0, 0.5, 1.0],
+                  stops: const [0.0, 0.45, 0.75],
                 ),
               ),
             ),
