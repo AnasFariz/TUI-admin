@@ -64,12 +64,16 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // Photo plein écran, en arrière-plan de toute la page
+          // Photo plein écran, en arrière-plan de toute la page.
+          // Léger flou : adoucit l'image et masque la résolution limitée.
           Positioned.fill(
-            child: Image.asset('assets/images/login_background.jpg',
-                fit: BoxFit.cover,
-                filterQuality: FilterQuality.high,
-                isAntiAlias: true),
+            child: ImageFiltered(
+              imageFilter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+              child: Image.asset('assets/images/login_background.jpg',
+                  fit: BoxFit.cover,
+                  filterQuality: FilterQuality.high,
+                  isAntiAlias: true),
+            ),
           ),
           // Voile en dégradé : plus sombre à gauche (lisibilité du texte),
           // plus clair à droite pour laisser la photo bien visible.
